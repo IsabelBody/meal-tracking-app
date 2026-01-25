@@ -140,7 +140,7 @@ export default function ProfileScreen() {
           {/* Macros */}
           <Text fontWeight="600" color="$color">Macronutrients (grams)</Text>
           
-          <XStack gap="$3">
+          <XStack gap="$2">
             <YStack flex={1} gap="$2">
               <Label htmlFor="protein" fontSize="$2" color="$colorHover">
                 Protein
@@ -153,7 +153,7 @@ export default function ProfileScreen() {
                 }
                 keyboardType="numeric"
                 placeholder="150"
-                size="$3"
+                paddingHorizontal="$2"
               />
             </YStack>
 
@@ -169,7 +169,7 @@ export default function ProfileScreen() {
                 }
                 keyboardType="numeric"
                 placeholder="250"
-                size="$3"
+                paddingHorizontal="$2"
               />
             </YStack>
 
@@ -185,7 +185,7 @@ export default function ProfileScreen() {
                 }
                 keyboardType="numeric"
                 placeholder="65"
-                size="$3"
+                paddingHorizontal="$2"
               />
             </YStack>
           </XStack>
