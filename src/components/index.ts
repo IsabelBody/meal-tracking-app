@@ -3,6 +3,7 @@
  */
 
 export { ErrorBoundary, ErrorFallback, withErrorBoundary } from './ErrorBoundary';
+export { SwipeableDateHeader } from './SwipeableDateHeader';
 export { ToastContainer } from './Toast';
 
 // Macro display components

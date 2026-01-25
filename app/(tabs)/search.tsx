@@ -201,6 +201,8 @@ export default function SearchScreen() {
           backgroundColor="transparent"
           fontSize="$4"
           paddingHorizontal="$2"
+          focusStyle={{ backgroundColor: 'transparent', borderWidth: 0 }}
+          hoverStyle={{ backgroundColor: 'transparent' }}
         />
         {localQuery.length > 0 && (
           <Button

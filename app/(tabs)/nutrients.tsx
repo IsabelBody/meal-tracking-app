@@ -1,42 +1,20 @@
-import { ChevronLeft, ChevronRight } from '@tamagui/lucide-icons';
-import { useCallback, useMemo } from 'react';
-import { ScrollView, useColorScheme } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Button, Card, H2, H3, Progress, Text, XStack, YStack } from 'tamagui';
+import { useMemo } from 'react';
+import { Card, H3, Progress, Text, XStack, YStack } from 'tamagui';
 
 import {
     MicronutrientHighlights,
     NutritionDisplay,
+    SwipeableDateHeader,
 } from '../../src/components';
 import { useDateEntries, useDiaryStore } from '../../src/stores/diary.store';
 import { useGoalsStore, useNutritionProgress } from '../../src/stores/goals.store';
-import { addDays, getRelativeDateLabel, getTodayKey, isToday, isYesterday } from '../../src/utils/date';
 import { getMacroPercentages, sumNutrition } from '../../src/utils/nutrition';
 
 export default function NutrientsScreen() {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-  const insets = useSafeAreaInsets();
-
   const selectedDate = useDiaryStore((state) => state.selectedDate);
   const setSelectedDate = useDiaryStore((state) => state.setSelectedDate);
   const entries = useDateEntries(selectedDate);
   const goals = useGoalsStore((state) => state.goals);
-
-  // Date navigation
-  const viewingToday = isToday(selectedDate);
-
-  const goToPreviousDay = useCallback(() => {
-    setSelectedDate(addDays(selectedDate, -1));
-  }, [selectedDate, setSelectedDate]);
-
-  const goToNextDay = useCallback(() => {
-    setSelectedDate(addDays(selectedDate, 1));
-  }, [selectedDate, setSelectedDate]);
-
-  const goToToday = useCallback(() => {
-    setSelectedDate(getTodayKey());
-  }, [setSelectedDate]);
 
   // Calculate totals
   const totals = useMemo(() => sumNutrition(entries), [entries]);
@@ -47,66 +25,15 @@ export default function NutrientsScreen() {
   const hasEntries = entries.length > 0;
 
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: isDark ? '#111827' : '#F9FAFB' }}
-      contentContainerStyle={{ padding: 16, paddingTop: 16 + insets.top, paddingBottom: 32 }}
+    <SwipeableDateHeader
+      selectedDate={selectedDate}
+      onDateChange={setSelectedDate}
+      rightContent={
+        <Text fontSize="$3" color="$colorHover" marginLeft="$2">
+          {entries.length} {entries.length === 1 ? 'entry' : 'entries'}
+        </Text>
+      }
     >
-      {/* Date Header with Navigation */}
-      <YStack marginBottom="$4" gap="$2">
-        <XStack justifyContent="space-between" alignItems="center">
-          <XStack alignItems="center" gap="$2" flex={1}>
-            {/* Previous Day Button */}
-            <Button
-              size="$3"
-              circular
-              backgroundColor="transparent"
-              pressStyle={{ backgroundColor: '$backgroundHover' }}
-              onPress={goToPreviousDay}
-            >
-              <ChevronLeft size={24} color="$color" />
-            </Button>
-
-            {/* Date Label */}
-            <YStack flex={1} alignItems="center">
-              <H2 color="$color" textAlign="center">{getRelativeDateLabel(selectedDate)}</H2>
-            </YStack>
-
-            {/* Next Day Button (disabled if viewing today) */}
-            <Button
-              size="$3"
-              circular
-              backgroundColor="transparent"
-              pressStyle={{ backgroundColor: viewingToday ? 'transparent' : '$backgroundHover' }}
-              onPress={goToNextDay}
-              disabled={viewingToday}
-              opacity={viewingToday ? 0.3 : 1}
-            >
-              <ChevronRight size={24} color="$color" />
-            </Button>
-          </XStack>
-
-          {/* Entry count */}
-          <Text fontSize="$3" color="$colorHover" marginLeft="$2">
-            {entries.length} {entries.length === 1 ? 'entry' : 'entries'}
-          </Text>
-        </XStack>
-
-        {/* Today Button - shown when not viewing today or yesterday */}
-        {!viewingToday && !isYesterday(selectedDate) && (
-          <XStack justifyContent="center">
-            <Button
-              size="$2"
-              backgroundColor="#10B981"
-              color="white"
-              onPress={goToToday}
-              paddingHorizontal="$4"
-            >
-              Go to Today
-            </Button>
-          </XStack>
-        )}
-      </YStack>
-
       {!hasEntries ? (
         /* Empty State */
         <Card
@@ -283,6 +210,6 @@ export default function NutrientsScreen() {
           </Card>
         </YStack>
       )}
-    </ScrollView>
+    </SwipeableDateHeader>
   );
 }

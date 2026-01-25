@@ -1,13 +1,9 @@
-import { AlertCircle, ChevronLeft, ChevronRight, Cloud, CloudOff, Plus, RefreshCw, Trash2 } from '@tamagui/lucide-icons';
+import { AlertCircle, Cloud, CloudOff, Plus, RefreshCw, Trash2 } from '@tamagui/lucide-icons';
 import { useRouter } from 'expo-router';
 import { memo, useCallback, useEffect, useMemo } from 'react';
-import { RefreshControl, ScrollView, useColorScheme } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
     Button,
     Card,
-    H2,
-    H3,
     Progress,
     Separator,
     Text,
@@ -15,21 +11,18 @@ import {
     YStack
 } from 'tamagui';
 
-import { MacroProgressGroup } from '../../src/components';
+import { SwipeableDateHeader } from '../../src/components';
 import { useToast } from '../../src/contexts/toast';
 import { useSync } from '../../src/hooks/useSync';
 import { useAuthStore } from '../../src/stores/auth.store';
 import { useDateEntries, useDiaryStore } from '../../src/stores/diary.store';
 import { useGoalsStore, useNutritionProgress } from '../../src/stores/goals.store';
 import { MEAL_TYPES, MealType } from '../../src/types';
-import { addDays, formatTime, getRelativeDateLabel, getTodayKey, isToday, isYesterday } from '../../src/utils/date';
+import { formatTime } from '../../src/utils/date';
 import { sumNutrition } from '../../src/utils/nutrition';
 
 export default function DashboardScreen() {
   const router = useRouter();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-  const insets = useSafeAreaInsets();
   const { showError, showSuccess } = useToast();
   const selectedDate = useDiaryStore((state) => state.selectedDate);
   const setSelectedDate = useDiaryStore((state) => state.setSelectedDate);
@@ -38,21 +31,6 @@ export default function DashboardScreen() {
   const goals = useGoalsStore((state) => state.goals);
   const goalsError = useGoalsStore((state) => state.error);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  
-  // Date navigation
-  const viewingToday = isToday(selectedDate);
-  
-  const goToPreviousDay = useCallback(() => {
-    setSelectedDate(addDays(selectedDate, -1));
-  }, [selectedDate, setSelectedDate]);
-  
-  const goToNextDay = useCallback(() => {
-    setSelectedDate(addDays(selectedDate, 1));
-  }, [selectedDate, setSelectedDate]);
-  
-  const goToToday = useCallback(() => {
-    setSelectedDate(getTodayKey());
-  }, [setSelectedDate]);
   
   // Initialize sync
   const { isSyncing, syncCurrentDate, fullSync } = useSync();
@@ -109,108 +87,52 @@ export default function DashboardScreen() {
 
   // Get delete handler
   const deleteEntry = useDiaryStore((state) => state.deleteEntry);
-  const token = useAuthStore((state) => state.token);
+  const getAccessToken = useAuthStore((state) => state.getAccessToken);
 
   const handleDeleteEntry = useCallback(async (entryId: string) => {
+    const token = await getAccessToken();
     await deleteEntry(entryId, selectedDate, token ?? undefined);
     showSuccess('Entry deleted');
-  }, [deleteEntry, selectedDate, token, showSuccess]);
+  }, [deleteEntry, selectedDate, getAccessToken, showSuccess]);
 
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: isDark ? '#111827' : '#F9FAFB' }}
-      contentContainerStyle={{ padding: 16, paddingTop: 16 + insets.top }}
-      refreshControl={
-        <RefreshControl
-          refreshing={isSyncing}
-          onRefresh={handleRefresh}
-          colors={['#10B981']}
-          tintColor="#10B981"
-        />
-      }
-    >
-      {/* Date Header with Navigation */}
-      <YStack marginBottom="$4" gap="$2">
-        <XStack justifyContent="space-between" alignItems="center">
-          <XStack alignItems="center" gap="$2" flex={1}>
-            {/* Previous Day Button */}
-            <Button
-              size="$3"
-              circular
-              backgroundColor="transparent"
-              pressStyle={{ backgroundColor: '$backgroundHover' }}
-              onPress={goToPreviousDay}
+    <SwipeableDateHeader
+      selectedDate={selectedDate}
+      onDateChange={setSelectedDate}
+      refreshing={isSyncing}
+      onRefresh={handleRefresh}
+      rightContent={
+        isAuthenticated ? (
+          hasSyncError ? (
+            <XStack 
+              alignItems="center" 
+              gap="$1" 
+              onPress={handleRetrySync}
+              pressStyle={{ opacity: 0.7 }}
             >
-              <ChevronLeft size={24} color="$color" />
-            </Button>
-            
-            {/* Date Label */}
-            <YStack flex={1} alignItems="center">
-              <H2 color="$color" textAlign="center">{getRelativeDateLabel(selectedDate)}</H2>
-            </YStack>
-            
-            {/* Next Day Button (disabled if viewing today) */}
-            <Button
-              size="$3"
-              circular
-              backgroundColor="transparent"
-              pressStyle={{ backgroundColor: viewingToday ? 'transparent' : '$backgroundHover' }}
-              onPress={goToNextDay}
-              disabled={viewingToday}
-              opacity={viewingToday ? 0.3 : 1}
-            >
-              <ChevronRight size={24} color="$color" />
-            </Button>
-          </XStack>
-          
-          {/* Sync Status Indicator */}
-          {isAuthenticated ? (
-            hasSyncError ? (
-              <XStack 
-                alignItems="center" 
-                gap="$1" 
-                onPress={handleRetrySync}
-                pressStyle={{ opacity: 0.7 }}
-              >
-                <AlertCircle size={16} color="#EF4444" />
-                <Text fontSize="$1" color="#EF4444">Sync Error</Text>
-                <RefreshCw size={12} color="#EF4444" />
-              </XStack>
-            ) : isSyncing ? (
-              <XStack alignItems="center" gap="$1" opacity={0.6}>
-                <RefreshCw size={16} color="#10B981" />
-                <Text fontSize="$1" color="#10B981">Syncing...</Text>
-              </XStack>
-            ) : (
-              <XStack alignItems="center" gap="$1" opacity={0.6}>
-                <Cloud size={16} color="#10B981" />
-                <Text fontSize="$1" color="#10B981">Synced</Text>
-              </XStack>
-            )
+              <AlertCircle size={16} color="#EF4444" />
+              <Text fontSize="$1" color="#EF4444">Sync Error</Text>
+              <RefreshCw size={12} color="#EF4444" />
+            </XStack>
+          ) : isSyncing ? (
+            <XStack alignItems="center" gap="$1" opacity={0.6}>
+              <RefreshCw size={16} color="#10B981" />
+              <Text fontSize="$1" color="#10B981">Syncing...</Text>
+            </XStack>
           ) : (
             <XStack alignItems="center" gap="$1" opacity={0.6}>
-              <CloudOff size={16} color="$colorHover" />
-              <Text fontSize="$1" color="$colorHover">Local</Text>
+              <Cloud size={16} color="#10B981" />
+              <Text fontSize="$1" color="#10B981">Synced</Text>
             </XStack>
-          )}
-        </XStack>
-        
-        {/* Today Button - shown when not viewing today or yesterday */}
-        {!viewingToday && !isYesterday(selectedDate) && (
-          <XStack justifyContent="center">
-            <Button
-              size="$2"
-              backgroundColor="#10B981"
-              color="white"
-              onPress={goToToday}
-              paddingHorizontal="$4"
-            >
-              Go to Today
-            </Button>
+          )
+        ) : (
+          <XStack alignItems="center" gap="$1" opacity={0.6}>
+            <CloudOff size={16} color="$colorHover" />
+            <Text fontSize="$1" color="$colorHover">Local</Text>
           </XStack>
-        )}
-      </YStack>
-
+        )
+      }
+    >
       {/* Calorie Summary Card */}
       <Card
         elevate
@@ -247,34 +169,6 @@ export default function DashboardScreen() {
         </YStack>
       </Card>
 
-      {/* Macro Summary */}
-      <Card
-        elevate
-        bordered
-        padding="$4"
-        marginBottom="$4"
-        backgroundColor="$background"
-      >
-        <H3 marginBottom="$3" color="$color">Macros</H3>
-        <MacroProgressGroup
-          current={{
-            protein: totals.protein,
-            carbs: totals.carbs,
-            fat: totals.fat,
-          }}
-          goals={{
-            protein: goals.protein,
-            carbs: goals.carbs,
-            fat: goals.fat,
-          }}
-          progress={{
-            protein: progress.protein,
-            carbs: progress.carbs,
-            fat: progress.fat,
-          }}
-        />
-      </Card>
-
       {/* Meal Sections */}
       {mealData.map((meal) => (
         <MealCard
@@ -284,7 +178,7 @@ export default function DashboardScreen() {
           onDeleteEntry={handleDeleteEntry}
         />
       ))}
-    </ScrollView>
+    </SwipeableDateHeader>
   );
 }
 
