@@ -3,6 +3,7 @@ import { BarcodeScanningResult, CameraView, useCameraPermissions } from 'expo-ca
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, useColorScheme } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
     Button,
     Card,
@@ -21,6 +22,7 @@ export default function ScannerScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const insets = useSafeAreaInsets();
   const [permission, requestPermission] = useCameraPermissions();
   const [isScanning, setIsScanning] = useState(true);
   const [torch, setTorch] = useState(false);
@@ -76,7 +78,7 @@ export default function ScannerScreen() {
   // Permission not determined yet
   if (!permission) {
     return (
-      <YStack flex={1} justifyContent="center" alignItems="center" backgroundColor="$background">
+      <YStack flex={1} justifyContent="center" alignItems="center" backgroundColor="$background" paddingTop={insets.top}>
         <Spinner size="large" color="#10B981" />
       </YStack>
     );
@@ -85,7 +87,7 @@ export default function ScannerScreen() {
   // Permission denied
   if (!permission.granted) {
     return (
-      <YStack flex={1} justifyContent="center" alignItems="center" padding="$4" backgroundColor="$background">
+      <YStack flex={1} justifyContent="center" alignItems="center" padding="$4" paddingTop={insets.top} backgroundColor="$background">
         <Camera size={64} color="$colorHover" />
         <Text fontSize="$6" fontWeight="600" marginTop="$4" textAlign="center" color="$color">
           Camera Access Required
@@ -181,7 +183,7 @@ export default function ScannerScreen() {
 
       {/* Scanned Product Result */}
       {scannedProduct && (
-        <YStack flex={1} padding="$4" backgroundColor="$background">
+        <YStack flex={1} padding="$4" paddingTop={16 + insets.top} backgroundColor="$background">
           <Card elevate bordered padding="$4" marginBottom="$4">
             <YStack gap="$2">
               <Text fontSize="$6" fontWeight="700" color="$color">
@@ -236,7 +238,7 @@ export default function ScannerScreen() {
 
       {/* Error State */}
       {error && (
-        <YStack flex={1} padding="$4" justifyContent="center" backgroundColor="$background">
+        <YStack flex={1} padding="$4" paddingTop={insets.top} justifyContent="center" backgroundColor="$background">
           <Card 
             padding="$4" 
             backgroundColor={isDark ? '#450A0A' : '#FEF2F2'} 

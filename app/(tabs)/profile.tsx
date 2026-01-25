@@ -2,6 +2,7 @@ import { Cloud, LogIn, LogOut, Settings, Target, User } from '@tamagui/lucide-ic
 import { useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Alert, ScrollView, useColorScheme } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Button,
   Card,
@@ -24,6 +25,7 @@ export default function ProfileScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const insets = useSafeAreaInsets();
   const { goals, profile, updateGoals, updateProfile, resetGoals, isSyncing } = useGoalsStore();
   const { isAuthenticated, user, logout, getAccessToken, isLoading: authLoading } = useAuthStore();
 
@@ -107,7 +109,7 @@ export default function ProfileScreen() {
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: isDark ? '#111827' : '#F9FAFB' }}
-      contentContainerStyle={{ padding: 16 }}
+      contentContainerStyle={{ padding: 16, paddingTop: 16 + insets.top }}
     >
       {/* Goals Section */}
       <Card elevate bordered padding="$4" marginBottom="$4" backgroundColor="$background">

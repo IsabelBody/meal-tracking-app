@@ -3,6 +3,7 @@ import { signIn } from 'aws-amplify/auth';
 import { Link, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
     Button,
     H1,
@@ -16,6 +17,7 @@ import {
 
 export default function LoginScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -109,6 +111,8 @@ export default function LoginScreen() {
       <YStack
         flex={1}
         padding="$4"
+        paddingTop={insets.top}
+        paddingBottom={insets.bottom}
         justifyContent="center"
         backgroundColor="$background"
       >

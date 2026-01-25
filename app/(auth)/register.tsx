@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Alert, ScrollView } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, Link } from 'expo-router';
 import {
   YStack,
@@ -16,6 +17,7 @@ import { Mail, Lock, Eye, EyeOff, User } from '@tamagui/lucide-icons';
 
 export default function RegisterScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [step, setStep] = useState<'register' | 'confirm'>('register');
   
   // Registration fields
@@ -118,6 +120,8 @@ export default function RegisterScreen() {
         <YStack
           flex={1}
           padding="$4"
+          paddingTop={insets.top}
+          paddingBottom={insets.bottom}
           justifyContent="center"
           backgroundColor="$background"
         >
@@ -172,7 +176,7 @@ export default function RegisterScreen() {
       style={{ flex: 1 }}
     >
       <ScrollView
-        contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}
+        contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingTop: insets.top, paddingBottom: insets.bottom }}
         keyboardShouldPersistTaps="handled"
       >
         <YStack

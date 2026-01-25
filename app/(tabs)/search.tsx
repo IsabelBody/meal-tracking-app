@@ -2,6 +2,7 @@ import { AlertCircle, ChevronRight, Clock, RefreshCw, Search, Star, X } from '@t
 import { useRouter } from 'expo-router';
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { FlatList, Keyboard, useColorScheme } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
     Button,
     Card,
@@ -75,6 +76,7 @@ export default function SearchScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const insets = useSafeAreaInsets();
   const [localQuery, setLocalQuery] = useState('');
   const { showError } = useToast();
   const { error: handlerError, handleError, clearError } = useErrorHandler({
@@ -178,7 +180,7 @@ export default function SearchScreen() {
   const showRecentContent = !query && results.length === 0;
 
   return (
-    <YStack flex={1} backgroundColor="$backgroundHover" padding="$3">
+    <YStack flex={1} backgroundColor="$backgroundHover" padding="$3" paddingTop={12 + insets.top}>
       {/* Search Input */}
       <XStack
         backgroundColor="$background"

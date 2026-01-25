@@ -2,6 +2,7 @@ import { AlertCircle, Cloud, CloudOff, Plus, RefreshCw } from '@tamagui/lucide-i
 import { useRouter } from 'expo-router';
 import { memo, useCallback, useEffect, useMemo } from 'react';
 import { RefreshControl, ScrollView, useColorScheme } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
     Button,
     Card,
@@ -28,6 +29,7 @@ export default function DashboardScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const insets = useSafeAreaInsets();
   const { showError, showSuccess } = useToast();
   const selectedDate = useDiaryStore((state) => state.selectedDate);
   const diaryError = useDiaryStore((state) => state.error);
@@ -92,7 +94,7 @@ export default function DashboardScreen() {
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: isDark ? '#111827' : '#F9FAFB' }}
-      contentContainerStyle={{ padding: 16 }}
+      contentContainerStyle={{ padding: 16, paddingTop: 16 + insets.top }}
       refreshControl={
         <RefreshControl
           refreshing={isSyncing}
