@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { ScrollView, Alert } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
@@ -17,6 +17,7 @@ import {
 import { Check, ChevronDown, Plus, Minus } from '@tamagui/lucide-icons';
 
 import { useDiaryStore } from '../src/stores/diary.store';
+import { useAuthStore } from '../src/stores/auth.store';
 import { NormalizedFood, NormalizedServing, MealType, MEAL_TYPES } from '../src/types';
 import { scaleNutrition } from '../src/utils/nutrition';
 import { getTodayKey } from '../src/utils/date';
@@ -31,6 +32,7 @@ export default function AddFoodScreen() {
   }>();
 
   const { addEntry } = useDiaryStore();
+  const { isAuthenticated, getAccessToken } = useAuthStore();
 
   const [food, setFood] = useState<NormalizedFood | null>(null);
   const [selectedServing, setSelectedServing] = useState<NormalizedServing | null>(null);
@@ -52,7 +54,7 @@ export default function AddFoodScreen() {
     }
   }, [params.foodData]);
 
-  const handleAddToDiary = () => {
+  const handleAddToDiary = useCallback(async () => {
     if (!food || !selectedServing) {
       Alert.alert('Error', 'Please select a food and serving size');
       return;
@@ -60,7 +62,10 @@ export default function AddFoodScreen() {
 
     const scaledNutrition = scaleNutrition(selectedServing.nutrition, servingAmount);
 
-    addEntry({
+    // Get auth token for cloud sync if authenticated
+    const token = isAuthenticated ? await getAccessToken() : null;
+
+    await addEntry({
       date: selectedDate,
       mealType: selectedMeal,
       foodId: food.id,
@@ -72,14 +77,14 @@ export default function AddFoodScreen() {
       servingDescription: selectedServing.description,
       nutrition: scaledNutrition,
       source: food.source,
-    });
+    }, token || undefined);
 
     Alert.alert(
       'Added',
       `${food.name} added to ${MEAL_TYPES.find((m) => m.type === selectedMeal)?.label}`,
       [{ text: 'OK', onPress: () => router.back() }]
     );
-  };
+  }, [food, selectedServing, servingAmount, selectedDate, selectedMeal, isAuthenticated, getAccessToken, addEntry, router]);
 
   const incrementAmount = () => setServingAmount((prev) => Math.min(prev + 0.5, 10));
   const decrementAmount = () => setServingAmount((prev) => Math.max(prev - 0.5, 0.5));

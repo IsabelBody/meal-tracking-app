@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { ScrollView, Alert } from 'react-native';
+import { useRouter } from 'expo-router';
 import {
   YStack,
   XStack,
@@ -11,14 +12,18 @@ import {
   Separator,
   Label,
   Switch,
+  Spinner,
 } from 'tamagui';
-import { Target, Settings, Info } from '@tamagui/lucide-icons';
+import { Target, Settings, Info, User, LogOut, LogIn, Cloud } from '@tamagui/lucide-icons';
 
 import { useGoalsStore } from '../../src/stores/goals.store';
+import { useAuthStore } from '../../src/stores/auth.store';
 import { DEFAULT_GOALS } from '../../src/types';
 
 export default function ProfileScreen() {
-  const { goals, profile, updateGoals, updateProfile, resetGoals } = useGoalsStore();
+  const router = useRouter();
+  const { goals, profile, updateGoals, updateProfile, resetGoals, isSyncing } = useGoalsStore();
+  const { isAuthenticated, user, logout, getAccessToken, isLoading: authLoading } = useAuthStore();
 
   // Local state for editing
   const [editedGoals, setEditedGoals] = useState({
@@ -29,7 +34,7 @@ export default function ProfileScreen() {
     fiber: String(goals.fiber || 25),
   });
 
-  const handleSaveGoals = () => {
+  const handleSaveGoals = useCallback(async () => {
     const newGoals = {
       calories: parseInt(editedGoals.calories, 10) || DEFAULT_GOALS.calories,
       protein: parseInt(editedGoals.protein, 10) || DEFAULT_GOALS.protein,
@@ -37,9 +42,35 @@ export default function ProfileScreen() {
       fat: parseInt(editedGoals.fat, 10) || DEFAULT_GOALS.fat,
       fiber: parseInt(editedGoals.fiber, 10) || DEFAULT_GOALS.fiber,
     };
-    updateGoals(newGoals);
+    
+    // Get token for cloud sync if authenticated
+    const token = isAuthenticated ? await getAccessToken() : null;
+    await updateGoals(newGoals, token || undefined);
+    
     Alert.alert('Success', 'Your goals have been updated.');
-  };
+  }, [editedGoals, isAuthenticated, getAccessToken, updateGoals]);
+
+  const handleLogout = useCallback(async () => {
+    Alert.alert(
+      'Sign Out',
+      'Are you sure you want to sign out?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Sign Out',
+          style: 'destructive',
+          onPress: async () => {
+            await logout();
+            Alert.alert('Signed Out', 'You have been signed out. Your local data is preserved.');
+          },
+        },
+      ]
+    );
+  }, [logout]);
+
+  const handleLogin = useCallback(() => {
+    router.push('/(auth)/login');
+  }, [router]);
 
   const handleResetGoals = () => {
     Alert.alert(
@@ -215,6 +246,52 @@ export default function ProfileScreen() {
             <Switch.Thumb animation="bouncy" />
           </Switch>
         </XStack>
+      </Card>
+
+      {/* Account Section */}
+      <Card elevate bordered padding="$4" marginBottom="$4" backgroundColor="$background">
+        <XStack alignItems="center" gap="$2" marginBottom="$4">
+          <User size={24} color="#10B981" />
+          <H3 color="$color">Account</H3>
+        </XStack>
+
+        {isAuthenticated ? (
+          <YStack gap="$3">
+            <XStack alignItems="center" gap="$2">
+              <Cloud size={16} color="#10B981" />
+              <Text fontSize="$2" color="#10B981">Cloud sync enabled</Text>
+            </XStack>
+            <YStack gap="$1">
+              <Text fontWeight="500" color="$color">Signed in as</Text>
+              <Text fontSize="$3" color="$colorHover">{user?.signInDetails?.loginId || 'User'}</Text>
+            </YStack>
+            <Separator />
+            <Button
+              backgroundColor="$background"
+              borderWidth={1}
+              borderColor="$borderColor"
+              icon={authLoading ? undefined : LogOut}
+              onPress={handleLogout}
+              disabled={authLoading}
+            >
+              {authLoading ? <Spinner /> : 'Sign Out'}
+            </Button>
+          </YStack>
+        ) : (
+          <YStack gap="$3">
+            <Text fontSize="$3" color="$colorHover">
+              Sign in to sync your data across devices and back up your progress.
+            </Text>
+            <Button
+              backgroundColor="#10B981"
+              color="white"
+              icon={LogIn}
+              onPress={handleLogin}
+            >
+              Sign In
+            </Button>
+          </YStack>
+        )}
       </Card>
 
       {/* About Section */}

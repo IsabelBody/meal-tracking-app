@@ -3,15 +3,15 @@ module.exports = function (api) {
   return {
     presets: ['babel-preset-expo'],
     plugins: [
-      // Tamagui babel plugin disabled for now - will work without optimization
-      // [
-      //   '@tamagui/babel-plugin',
-      //   {
-      //     components: ['tamagui'],
-      //     config: './tamagui.config.ts',
-      //     disableExtraction: true,
-      //   },
-      // ],
+      [
+        '@tamagui/babel-plugin',
+        {
+          components: ['tamagui'],
+          config: './tamagui.config.ts',
+          disableExtraction: true,
+        },
+      ],
+      // Must be last
       'react-native-reanimated/plugin',
     ],
   };

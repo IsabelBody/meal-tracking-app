@@ -63,7 +63,7 @@ export class MealTrackerStack extends cdk.Stack {
       },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       removalPolicy: cdk.RemovalPolicy.DESTROY, // For development
-      pointInTimeRecoveryEnabled: true,
+      pointInTimeRecovery: true,
     });
 
     // Add GSI for querying by date

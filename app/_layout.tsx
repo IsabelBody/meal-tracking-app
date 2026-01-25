@@ -1,3 +1,4 @@
+import 'react-native-get-random-values'; // Must be first - polyfill for uuid
 import { useEffect } from 'react';
 import { useColorScheme } from 'react-native';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
@@ -9,6 +10,7 @@ import 'react-native-reanimated';
 
 import config from '../tamagui.config';
 import { configureAWS } from '../src/services/aws/config';
+import { useAuthStore } from '../src/stores/auth.store';
 
 // Initialize AWS Amplify
 configureAWS();
@@ -28,6 +30,7 @@ SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+  const checkAuthState = useAuthStore((state) => state.checkAuthState);
   
   const [loaded, error] = useFonts({
     Inter: require('@tamagui/font-inter/otf/Inter-Medium.otf'),
@@ -38,6 +41,11 @@ export default function RootLayout() {
   useEffect(() => {
     if (error) throw error;
   }, [error]);
+
+  // Check authentication state on app start
+  useEffect(() => {
+    checkAuthState();
+  }, [checkAuthState]);
 
   useEffect(() => {
     if (loaded) {

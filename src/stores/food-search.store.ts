@@ -1,6 +1,6 @@
-import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { create } from 'zustand';
+import { createJSONStorage, persist } from 'zustand/middleware';
 import { FoodSearchResult, NormalizedFood } from '../types';
 
 interface FoodCache {
@@ -224,12 +224,12 @@ export const useFoodSearchStore = create<FoodSearchState>()(
     {
       name: 'meal-tracker-food-search',
       storage: createJSONStorage(() => AsyncStorage),
+      // Only persist small, essential data - NOT caches (causes slowdown)
       partialize: (state) => ({
-        recentSearches: state.recentSearches,
-        recentFoods: state.recentFoods,
+        recentSearches: state.recentSearches.slice(0, MAX_RECENT_SEARCHES),
+        recentFoods: state.recentFoods.slice(0, MAX_RECENT_FOODS),
         favoriteFoods: state.favoriteFoods,
-        foodCache: state.foodCache,
-        searchCache: state.searchCache,
+        // Caches are kept in memory only for performance
       }),
     }
   )

@@ -9,21 +9,34 @@ import {
 } from '../types';
 import { getTodayKey, formatDateKey, getISOTimestamp } from '../utils/date';
 import { sumNutrition } from '../utils/nutrition';
+import {
+  getDiaryEntries,
+  createDiaryEntry,
+  deleteDiaryEntry,
+  cloudToLocalEntry,
+  localToCloudEntry,
+} from '../services/api/diary';
 
 interface DiaryState {
   // Data
   entries: Record<string, DiaryEntry[]>; // Keyed by date (YYYY-MM-DD)
   selectedDate: string;
   isLoading: boolean;
+  isSyncing: boolean;
   error: string | null;
+  lastSyncedAt: string | null;
 
   // Actions
   setSelectedDate: (date: string | Date) => void;
-  addEntry: (entry: Omit<DiaryEntry, 'id' | 'createdAt' | 'updatedAt'>) => DiaryEntry;
+  addEntry: (entry: Omit<DiaryEntry, 'id' | 'createdAt' | 'updatedAt'>, token?: string) => Promise<DiaryEntry>;
   updateEntry: (id: string, updates: Partial<DiaryEntry>) => void;
-  deleteEntry: (id: string, date: string) => void;
+  deleteEntry: (id: string, date: string, token?: string) => Promise<void>;
   copyMeal: (fromDate: string, toDate: string, mealType: MealType) => void;
   clearDay: (date: string) => void;
+
+  // Cloud sync actions
+  syncEntriesForDate: (date: string, token: string) => Promise<void>;
+  syncUnsyncedEntries: (token: string) => Promise<void>;
 
   // Selectors (computed-like functions)
   getEntriesForDate: (date: string) => DiaryEntry[];
@@ -39,7 +52,9 @@ export const useDiaryStore = create<DiaryState>()(
       entries: {},
       selectedDate: getTodayKey(),
       isLoading: false,
+      isSyncing: false,
       error: null,
+      lastSyncedAt: null,
 
       // Actions
       setSelectedDate: (date) => {
@@ -47,7 +62,7 @@ export const useDiaryStore = create<DiaryState>()(
         set({ selectedDate: dateKey });
       },
 
-      addEntry: (entryData) => {
+      addEntry: async (entryData, token) => {
         const id = uuidv4();
         const timestamp = getISOTimestamp();
         const newEntry: DiaryEntry = {
@@ -55,8 +70,10 @@ export const useDiaryStore = create<DiaryState>()(
           id,
           createdAt: timestamp,
           updatedAt: timestamp,
+          synced: false,
         };
 
+        // Add to local state immediately (optimistic update)
         set((state) => {
           const dateEntries = state.entries[entryData.date] || [];
           return {
@@ -66,6 +83,40 @@ export const useDiaryStore = create<DiaryState>()(
             },
           };
         });
+
+        // Sync to cloud if authenticated
+        if (token) {
+          try {
+            const cloudData = localToCloudEntry(entryData);
+            const result = await createDiaryEntry(cloudData as any, token);
+            
+            if (result.data) {
+              // Update local entry with cloud data
+              set((state) => {
+                const dateEntries = state.entries[entryData.date] || [];
+                const index = dateEntries.findIndex((e) => e.id === id);
+                if (index !== -1) {
+                  const updatedEntries = [...dateEntries];
+                  updatedEntries[index] = {
+                    ...updatedEntries[index],
+                    cloudEntryKey: result.data!.entryKey,
+                    synced: true,
+                  };
+                  return {
+                    entries: {
+                      ...state.entries,
+                      [entryData.date]: updatedEntries,
+                    },
+                  };
+                }
+                return state;
+              });
+            }
+          } catch (error) {
+            console.error('Failed to sync entry to cloud:', error);
+            // Entry remains local with synced: false
+          }
+        }
 
         return newEntry;
       },
@@ -82,6 +133,7 @@ export const useDiaryStore = create<DiaryState>()(
                 ...newEntries[date][index],
                 ...updates,
                 updatedAt: getISOTimestamp(),
+                synced: false, // Mark as needing sync
               };
               break;
             }
@@ -91,7 +143,10 @@ export const useDiaryStore = create<DiaryState>()(
         });
       },
 
-      deleteEntry: (id, date) => {
+      deleteEntry: async (id, date, token) => {
+        const entry = get().entries[date]?.find((e) => e.id === id);
+        
+        // Remove from local state immediately
         set((state) => {
           const dateEntries = state.entries[date];
           if (!dateEntries) return state;
@@ -103,6 +158,15 @@ export const useDiaryStore = create<DiaryState>()(
             },
           };
         });
+
+        // Delete from cloud if authenticated and entry was synced
+        if (token && entry?.cloudEntryKey) {
+          try {
+            await deleteDiaryEntry(entry.cloudEntryKey, token);
+          } catch (error) {
+            console.error('Failed to delete entry from cloud:', error);
+          }
+        }
       },
 
       copyMeal: (fromDate, toDate, mealType) => {
@@ -127,6 +191,94 @@ export const useDiaryStore = create<DiaryState>()(
           delete newEntries[date];
           return { entries: newEntries };
         });
+      },
+
+      // Cloud sync: fetch entries from cloud and merge with local
+      syncEntriesForDate: async (date, token) => {
+        set({ isSyncing: true, error: null });
+        
+        try {
+          const result = await getDiaryEntries(date, token);
+          
+          if (result.error) {
+            set({ error: result.error, isSyncing: false });
+            return;
+          }
+
+          if (result.data?.entries) {
+            const cloudEntries = result.data.entries.map(cloudToLocalEntry);
+            
+            set((state) => {
+              const localEntries = state.entries[date] || [];
+              // Get local entries that aren't synced (new local entries)
+              const unsyncedLocal = localEntries.filter((e) => !e.synced);
+              
+              // Merge: cloud entries + unsynced local entries
+              const mergedEntries = [
+                ...cloudEntries,
+                ...unsyncedLocal.filter(
+                  (local) => !cloudEntries.some((cloud) => cloud.id === local.id)
+                ),
+              ];
+
+              return {
+                entries: {
+                  ...state.entries,
+                  [date]: mergedEntries,
+                },
+                lastSyncedAt: getISOTimestamp(),
+                isSyncing: false,
+              };
+            });
+          } else {
+            set({ isSyncing: false });
+          }
+        } catch (error: any) {
+          set({ error: error.message || 'Sync failed', isSyncing: false });
+        }
+      },
+
+      // Sync all unsynced entries to cloud
+      syncUnsyncedEntries: async (token) => {
+        const { entries } = get();
+        set({ isSyncing: true });
+
+        try {
+          for (const date in entries) {
+            const unsyncedEntries = entries[date].filter((e) => !e.synced);
+            
+            for (const entry of unsyncedEntries) {
+              const cloudData = localToCloudEntry(entry);
+              const result = await createDiaryEntry(cloudData as any, token);
+              
+              if (result.data) {
+                set((state) => {
+                  const dateEntries = state.entries[date] || [];
+                  const index = dateEntries.findIndex((e) => e.id === entry.id);
+                  if (index !== -1) {
+                    const updatedEntries = [...dateEntries];
+                    updatedEntries[index] = {
+                      ...updatedEntries[index],
+                      cloudEntryKey: result.data!.entryKey,
+                      synced: true,
+                    };
+                    return {
+                      entries: {
+                        ...state.entries,
+                        [date]: updatedEntries,
+                      },
+                    };
+                  }
+                  return state;
+                });
+              }
+            }
+          }
+          
+          set({ lastSyncedAt: getISOTimestamp(), isSyncing: false });
+        } catch (error: any) {
+          set({ error: error.message || 'Sync failed', isSyncing: false });
+        }
       },
 
       // Selectors
@@ -158,6 +310,7 @@ export const useDiaryStore = create<DiaryState>()(
       partialize: (state) => ({
         entries: state.entries,
         selectedDate: state.selectedDate,
+        lastSyncedAt: state.lastSyncedAt,
       }),
     }
   )

@@ -1,21 +1,77 @@
-import { useState, useCallback, useEffect } from 'react';
-import { FlatList, Keyboard } from 'react-native';
+import { ChevronRight, Clock, Search, Star, X } from '@tamagui/lucide-icons';
 import { useRouter } from 'expo-router';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { FlatList, Keyboard } from 'react-native';
 import {
-  YStack,
-  XStack,
-  Text,
-  Input,
-  Card,
-  Button,
-  Spinner,
-  Paragraph,
+    Button,
+    Card,
+    Input,
+    Paragraph,
+    Spinner,
+    Text,
+    XStack,
+    YStack,
 } from 'tamagui';
-import { Search, X, Star, Clock, ChevronRight } from '@tamagui/lucide-icons';
 
+import { parseQuickNutrition, searchFoods } from '../../src/services/api/fatsecret';
 import { useFoodSearchStore } from '../../src/stores/food-search.store';
-import { searchFoods, parseQuickNutrition } from '../../src/services/api/fatsecret';
 import { FoodSearchResult } from '../../src/types';
+
+// Memoized food item component
+const FoodItem = memo(function FoodItem({
+  item,
+  onPress,
+}: {
+  item: FoodSearchResult;
+  onPress: (food: FoodSearchResult) => void;
+}) {
+  const quickNutrition = useMemo(
+    () => parseQuickNutrition(item.food_description),
+    [item.food_description]
+  );
+
+  return (
+    <Card
+      elevate
+      bordered
+      marginBottom="$2"
+      padding="$3"
+      backgroundColor="$background"
+      pressStyle={{ opacity: 0.8 }}
+      onPress={() => onPress(item)}
+    >
+      <XStack justifyContent="space-between" alignItems="center">
+        <YStack flex={1} marginRight="$2">
+          <Text fontWeight="600" fontSize="$4" color="$color" numberOfLines={1}>
+            {item.food_name}
+          </Text>
+          {item.brand_name && (
+            <Text fontSize="$2" color="$colorHover">
+              {item.brand_name}
+            </Text>
+          )}
+          {quickNutrition && (
+            <XStack gap="$2" marginTop="$1">
+              <Text fontSize="$2" color="#10B981">
+                {quickNutrition.calories} cal
+              </Text>
+              <Text fontSize="$2" color="$colorHover">
+                P: {quickNutrition.protein}g
+              </Text>
+              <Text fontSize="$2" color="$colorHover">
+                C: {quickNutrition.carbs}g
+              </Text>
+              <Text fontSize="$2" color="$colorHover">
+                F: {quickNutrition.fat}g
+              </Text>
+            </XStack>
+          )}
+        </YStack>
+        <ChevronRight size={20} color="$colorHover" />
+      </XStack>
+    </Card>
+  );
+});
 
 export default function SearchScreen() {
   const router = useRouter();
@@ -73,70 +129,33 @@ export default function SearchScreen() {
     }
   };
 
-  const handleFoodPress = (food: FoodSearchResult) => {
+  const handleFoodPress = useCallback((food: FoodSearchResult) => {
     Keyboard.dismiss();
     router.push({
       pathname: '/food/[id]',
       params: { id: food.food_id },
     });
-  };
+  }, [router]);
 
-  const handleClear = () => {
+  const handleClear = useCallback(() => {
     setLocalQuery('');
     clearSearch();
     Keyboard.dismiss();
-  };
+  }, [clearSearch]);
 
-  const handleRecentSearchPress = (search: string) => {
+  const handleRecentSearchPress = useCallback((search: string) => {
     setLocalQuery(search);
     performSearch(search);
-  };
+  }, []);
 
-  const renderFoodItem = ({ item }: { item: FoodSearchResult }) => {
-    const quickNutrition = parseQuickNutrition(item.food_description);
+  const renderFoodItem = useCallback(
+    ({ item }: { item: FoodSearchResult }) => (
+      <FoodItem item={item} onPress={handleFoodPress} />
+    ),
+    [handleFoodPress]
+  );
 
-    return (
-      <Card
-        elevate
-        bordered
-        marginBottom="$2"
-        padding="$3"
-        backgroundColor="$background"
-        pressStyle={{ opacity: 0.8 }}
-        onPress={() => handleFoodPress(item)}
-      >
-        <XStack justifyContent="space-between" alignItems="center">
-          <YStack flex={1} marginRight="$2">
-            <Text fontWeight="600" fontSize="$4" color="$color" numberOfLines={1}>
-              {item.food_name}
-            </Text>
-            {item.brand_name && (
-              <Text fontSize="$2" color="$colorHover">
-                {item.brand_name}
-              </Text>
-            )}
-            {quickNutrition && (
-              <XStack gap="$2" marginTop="$1">
-                <Text fontSize="$2" color="#10B981">
-                  {quickNutrition.calories} cal
-                </Text>
-                <Text fontSize="$2" color="$colorHover">
-                  P: {quickNutrition.protein}g
-                </Text>
-                <Text fontSize="$2" color="$colorHover">
-                  C: {quickNutrition.carbs}g
-                </Text>
-                <Text fontSize="$2" color="$colorHover">
-                  F: {quickNutrition.fat}g
-                </Text>
-              </XStack>
-            )}
-          </YStack>
-          <ChevronRight size={20} color="$colorHover" />
-        </XStack>
-      </Card>
-    );
-  };
+  const keyExtractor = useCallback((item: FoodSearchResult) => item.food_id, []);
 
   const showRecentContent = !query && results.length === 0;
 
@@ -192,9 +211,18 @@ export default function SearchScreen() {
       {!isSearching && results.length > 0 && (
         <FlatList
           data={results}
-          keyExtractor={(item) => item.food_id}
+          keyExtractor={keyExtractor}
           renderItem={renderFoodItem}
           showsVerticalScrollIndicator={false}
+          removeClippedSubviews={true}
+          maxToRenderPerBatch={10}
+          windowSize={5}
+          initialNumToRender={10}
+          getItemLayout={(_, index) => ({
+            length: 80,
+            offset: 80 * index,
+            index,
+          })}
         />
       )}
 

@@ -17,6 +17,9 @@ export interface DiaryEntry {
   source: 'fatsecret' | 'openfoodfacts' | 'custom';
   createdAt: string;
   updatedAt: string;
+  // Cloud sync fields
+  cloudEntryKey?: string; // DynamoDB sort key for cloud operations
+  synced?: boolean; // Whether entry is synced with cloud
 }
 
 export interface DailySummary {

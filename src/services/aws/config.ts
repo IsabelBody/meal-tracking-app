@@ -1,21 +1,19 @@
 /**
  * AWS Amplify Configuration
  * 
- * After deploying the CDK stack, update these values with the outputs.
- * 
- * Run: cd infra && npm run deploy
- * Then copy the output values here.
+ * These values are loaded from environment variables.
+ * See .env file for the deployed values.
  */
 
 import { Amplify } from 'aws-amplify';
 
-// Configuration values - update these after CDK deployment
+// Configuration values from environment
 const awsConfig = {
   // Cognito User Pool
   Auth: {
     Cognito: {
-      userPoolId: process.env.EXPO_PUBLIC_USER_POOL_ID || 'us-east-1_XXXXXXXXX',
-      userPoolClientId: process.env.EXPO_PUBLIC_USER_POOL_CLIENT_ID || 'xxxxxxxxxxxxxxxxxxxxxxxxxx',
+      userPoolId: process.env.EXPO_PUBLIC_USER_POOL_ID || '',
+      userPoolClientId: process.env.EXPO_PUBLIC_USER_POOL_CLIENT_ID || '',
       loginWith: {
         email: true,
       },
@@ -23,8 +21,8 @@ const awsConfig = {
   },
 };
 
-// API endpoint - update after CDK deployment
-export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://xxxxxxxxxx.execute-api.us-east-1.amazonaws.com/prod';
+// API endpoint from environment
+export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || '';
 
 /**
  * Initialize AWS Amplify
@@ -32,8 +30,13 @@ export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://xxxxxxxx
  */
 export function configureAWS() {
   try {
-    Amplify.configure(awsConfig);
-    console.log('AWS Amplify configured successfully');
+    // Only configure if we have the required values
+    if (awsConfig.Auth.Cognito.userPoolId && awsConfig.Auth.Cognito.userPoolClientId) {
+      Amplify.configure(awsConfig);
+      console.log('AWS Amplify configured successfully');
+    } else {
+      console.warn('AWS configuration missing - auth features will be disabled');
+    }
   } catch (error) {
     console.error('Failed to configure AWS Amplify:', error);
   }
