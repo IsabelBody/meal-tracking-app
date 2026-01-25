@@ -8,6 +8,10 @@ import { TamaguiProvider, Theme } from 'tamagui';
 import 'react-native-reanimated';
 
 import config from '../tamagui.config';
+import { configureAWS } from '../src/services/aws/config';
+
+// Initialize AWS Amplify
+configureAWS();
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -51,6 +55,7 @@ export default function RootLayout() {
         <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
           <Stack>
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="(auth)" options={{ headerShown: false }} />
             <Stack.Screen 
               name="food/[id]" 
               options={{ 

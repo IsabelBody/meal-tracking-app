@@ -6,11 +6,9 @@ import {
   DiaryEntry,
   MealType,
   Nutrition,
-  NutritionGoals,
-  DEFAULT_GOALS,
 } from '../types';
 import { getTodayKey, formatDateKey, getISOTimestamp } from '../utils/date';
-import { sumNutrition, calculateRemaining } from '../utils/nutrition';
+import { sumNutrition } from '../utils/nutrition';
 
 interface DiaryState {
   // Data

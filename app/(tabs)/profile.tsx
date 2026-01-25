@@ -5,7 +5,6 @@ import {
   XStack,
   Text,
   Card,
-  H2,
   H3,
   Input,
   Button,
@@ -13,15 +12,13 @@ import {
   Label,
   Switch,
 } from 'tamagui';
-import { User, Target, Settings, Info } from '@tamagui/lucide-icons';
+import { Target, Settings, Info } from '@tamagui/lucide-icons';
 
 import { useGoalsStore } from '../../src/stores/goals.store';
-import { useDiaryStore } from '../../src/stores/diary.store';
 import { DEFAULT_GOALS } from '../../src/types';
 
 export default function ProfileScreen() {
   const { goals, profile, updateGoals, updateProfile, resetGoals } = useGoalsStore();
-  const clearDay = useDiaryStore((state) => state.clearDay);
 
   // Local state for editing
   const [editedGoals, setEditedGoals] = useState({

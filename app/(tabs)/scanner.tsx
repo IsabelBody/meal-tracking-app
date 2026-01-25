@@ -11,7 +11,7 @@ import {
   Spinner,
   Paragraph,
 } from 'tamagui';
-import { Camera, Flashlight, FlashlightOff, Search, X } from '@tamagui/lucide-icons';
+import { Camera, Flashlight, FlashlightOff, Search } from '@tamagui/lucide-icons';
 
 import { getProductByBarcode } from '../../src/services/api/openfoodfacts';
 import { NormalizedFood } from '../../src/types';

@@ -1,6 +1,5 @@
-import { useCallback } from 'react';
-import { ScrollView, RefreshControl } from 'react-native';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { ScrollView } from 'react-native';
+import { useRouter } from 'expo-router';
 import {
   YStack,
   XStack,
