@@ -1,0 +1,6 @@
+{
+  "name": "fatsecret-proxy",
+  "version": "1.0.0",
+  "description": "FatSecret API proxy Lambda",
+  "main": "index.js"
+}
