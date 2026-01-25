@@ -1,4 +1,4 @@
-import { AlertCircle, Cloud, CloudOff, Plus, RefreshCw, Trash2 } from '@tamagui/lucide-icons';
+import { AlertCircle, ChevronLeft, ChevronRight, Cloud, CloudOff, Plus, RefreshCw, Trash2 } from '@tamagui/lucide-icons';
 import { useRouter } from 'expo-router';
 import { memo, useCallback, useEffect, useMemo } from 'react';
 import { RefreshControl, ScrollView, useColorScheme } from 'react-native';
@@ -22,7 +22,7 @@ import { useAuthStore } from '../../src/stores/auth.store';
 import { useDateEntries, useDiaryStore } from '../../src/stores/diary.store';
 import { useGoalsStore, useNutritionProgress } from '../../src/stores/goals.store';
 import { MEAL_TYPES, MealType } from '../../src/types';
-import { getRelativeDateLabel } from '../../src/utils/date';
+import { addDays, getRelativeDateLabel, getTodayKey, isToday } from '../../src/utils/date';
 import { sumNutrition } from '../../src/utils/nutrition';
 
 export default function DashboardScreen() {
@@ -32,11 +32,27 @@ export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
   const { showError, showSuccess } = useToast();
   const selectedDate = useDiaryStore((state) => state.selectedDate);
+  const setSelectedDate = useDiaryStore((state) => state.setSelectedDate);
   const diaryError = useDiaryStore((state) => state.error);
   const entries = useDateEntries(selectedDate);
   const goals = useGoalsStore((state) => state.goals);
   const goalsError = useGoalsStore((state) => state.error);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  
+  // Date navigation
+  const viewingToday = isToday(selectedDate);
+  
+  const goToPreviousDay = useCallback(() => {
+    setSelectedDate(addDays(selectedDate, -1));
+  }, [selectedDate, setSelectedDate]);
+  
+  const goToNextDay = useCallback(() => {
+    setSelectedDate(addDays(selectedDate, 1));
+  }, [selectedDate, setSelectedDate]);
+  
+  const goToToday = useCallback(() => {
+    setSelectedDate(getTodayKey());
+  }, [setSelectedDate]);
   
   // Initialize sync
   const { isSyncing, syncCurrentDate, fullSync } = useSync();
@@ -113,40 +129,87 @@ export default function DashboardScreen() {
         />
       }
     >
-      {/* Date Header */}
-      <XStack justifyContent="space-between" alignItems="center" marginBottom="$4">
-        <H2 color="$color">{getRelativeDateLabel(selectedDate)}</H2>
-        {/* Sync Status Indicator */}
-        {isAuthenticated ? (
-          hasSyncError ? (
-            <XStack 
-              alignItems="center" 
-              gap="$1" 
-              onPress={handleRetrySync}
-              pressStyle={{ opacity: 0.7 }}
+      {/* Date Header with Navigation */}
+      <YStack marginBottom="$4" gap="$2">
+        <XStack justifyContent="space-between" alignItems="center">
+          <XStack alignItems="center" gap="$2" flex={1}>
+            {/* Previous Day Button */}
+            <Button
+              size="$3"
+              circular
+              backgroundColor="transparent"
+              pressStyle={{ backgroundColor: '$backgroundHover' }}
+              onPress={goToPreviousDay}
             >
-              <AlertCircle size={16} color="#EF4444" />
-              <Text fontSize="$1" color="#EF4444">Sync Error</Text>
-              <RefreshCw size={12} color="#EF4444" />
-            </XStack>
-          ) : isSyncing ? (
-            <XStack alignItems="center" gap="$1" opacity={0.6}>
-              <RefreshCw size={16} color="#10B981" />
-              <Text fontSize="$1" color="#10B981">Syncing...</Text>
-            </XStack>
+              <ChevronLeft size={24} color="$color" />
+            </Button>
+            
+            {/* Date Label */}
+            <YStack flex={1} alignItems="center">
+              <H2 color="$color" textAlign="center">{getRelativeDateLabel(selectedDate)}</H2>
+            </YStack>
+            
+            {/* Next Day Button (disabled if viewing today) */}
+            <Button
+              size="$3"
+              circular
+              backgroundColor="transparent"
+              pressStyle={{ backgroundColor: viewingToday ? 'transparent' : '$backgroundHover' }}
+              onPress={goToNextDay}
+              disabled={viewingToday}
+              opacity={viewingToday ? 0.3 : 1}
+            >
+              <ChevronRight size={24} color="$color" />
+            </Button>
+          </XStack>
+          
+          {/* Sync Status Indicator */}
+          {isAuthenticated ? (
+            hasSyncError ? (
+              <XStack 
+                alignItems="center" 
+                gap="$1" 
+                onPress={handleRetrySync}
+                pressStyle={{ opacity: 0.7 }}
+              >
+                <AlertCircle size={16} color="#EF4444" />
+                <Text fontSize="$1" color="#EF4444">Sync Error</Text>
+                <RefreshCw size={12} color="#EF4444" />
+              </XStack>
+            ) : isSyncing ? (
+              <XStack alignItems="center" gap="$1" opacity={0.6}>
+                <RefreshCw size={16} color="#10B981" />
+                <Text fontSize="$1" color="#10B981">Syncing...</Text>
+              </XStack>
+            ) : (
+              <XStack alignItems="center" gap="$1" opacity={0.6}>
+                <Cloud size={16} color="#10B981" />
+                <Text fontSize="$1" color="#10B981">Synced</Text>
+              </XStack>
+            )
           ) : (
             <XStack alignItems="center" gap="$1" opacity={0.6}>
-              <Cloud size={16} color="#10B981" />
-              <Text fontSize="$1" color="#10B981">Synced</Text>
+              <CloudOff size={16} color="$colorHover" />
+              <Text fontSize="$1" color="$colorHover">Local</Text>
             </XStack>
-          )
-        ) : (
-          <XStack alignItems="center" gap="$1" opacity={0.6}>
-            <CloudOff size={16} color="$colorHover" />
-            <Text fontSize="$1" color="$colorHover">Local</Text>
+          )}
+        </XStack>
+        
+        {/* Today Button - shown when not viewing today */}
+        {!viewingToday && (
+          <XStack justifyContent="center">
+            <Button
+              size="$2"
+              backgroundColor="#10B981"
+              color="white"
+              onPress={goToToday}
+              paddingHorizontal="$4"
+            >
+              Go to Today
+            </Button>
           </XStack>
         )}
-      </XStack>
+      </YStack>
 
       {/* Calorie Summary Card */}
       <Card
@@ -278,7 +341,9 @@ const MealCard = memo(function MealCard({
                   {entry.foodName}
                 </Text>
                 <Text fontSize="$2" color="$colorHover">
-                  {entry.servingAmount} {entry.servingUnit}
+                  {entry.servingAmount === 1 
+                    ? entry.servingDescription 
+                    : `${entry.servingAmount} x ${entry.servingDescription}`}
                 </Text>
               </YStack>
               <XStack alignItems="center" gap="$2">
