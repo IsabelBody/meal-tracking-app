@@ -27,8 +27,12 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "permissions": [
-        "android.permission.CAMERA"
-      ]
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ],
+      "package": "com.isabelbody.mealtrackingapp"
     },
     "web": {
       "bundler": "metro",
@@ -49,8 +53,9 @@
       "typedRoutes": true
     },
     "extra": {
+      "router": {},
       "eas": {
-        "projectId": "meal-tracker"
+        "projectId": "b6c4a87c-c0e3-4eba-bc8f-14183e0c2e5d"
       }
     }
   }

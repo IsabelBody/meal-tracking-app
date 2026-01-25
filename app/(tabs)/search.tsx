@@ -15,7 +15,7 @@ import {
 
 import { useToast } from '../../src/contexts/toast';
 import { useErrorHandler } from '../../src/hooks/useErrorHandler';
-import { parseQuickNutrition, searchFoods } from '../../src/services/api/fatsecret';
+import { parseQuickNutrition, searchFoods } from '../../src/services/api/food';
 import { useFoodSearchStore } from '../../src/stores/food-search.store';
 import { FoodSearchResult } from '../../src/types';
 import { isNetworkError } from '../../src/utils/errors';

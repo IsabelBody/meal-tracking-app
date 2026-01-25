@@ -15,7 +15,8 @@ import {
 } from 'tamagui';
 
 import { MacroCircleGroup, MacroRow } from '../../src/components';
-import { getFoodById } from '../../src/services/api/fatsecret';
+import { getFoodById } from '../../src/services/api/food';
+import { useAuthStore } from '../../src/stores/auth.store';
 import { useDiaryStore } from '../../src/stores/diary.store';
 import { useFoodSearchStore } from '../../src/stores/food-search.store';
 import { MEAL_TYPES, MealType, NormalizedFood, NormalizedServing } from '../../src/types';
@@ -37,6 +38,7 @@ export default function FoodDetailScreen() {
     isFavorite,
   } = useFoodSearchStore();
   const { addEntry, selectedDate } = useDiaryStore();
+  const { isAuthenticated, getAccessToken } = useAuthStore();
 
   const [food, setFood] = useState<NormalizedFood | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -108,12 +110,15 @@ export default function FoodDetailScreen() {
     }
   };
 
-  const handleAddToDiary = () => {
+  const handleAddToDiary = async () => {
     if (!food || !selectedServing) return;
 
     const scaledNutrition = scaleNutrition(selectedServing.nutrition, servingAmount);
 
-    addEntry({
+    // Get auth token for cloud sync if authenticated
+    const token = isAuthenticated ? await getAccessToken() : null;
+
+    await addEntry({
       date: selectedDate || getTodayKey(),
       mealType: selectedMeal,
       foodId: food.id,
@@ -125,7 +130,7 @@ export default function FoodDetailScreen() {
       servingDescription: selectedServing.description,
       nutrition: scaledNutrition,
       source: food.source,
-    });
+    }, token || undefined);
 
     Alert.alert(
       'Added',

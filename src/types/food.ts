@@ -1,44 +1,4 @@
-// FatSecret API Types
-export interface FatSecretFood {
-  food_id: string;
-  food_name: string;
-  food_type: 'Generic' | 'Brand';
-  brand_name?: string;
-  food_url: string;
-  servings: {
-    serving: FatSecretServing | FatSecretServing[];
-  };
-}
-
-export interface FatSecretServing {
-  serving_id: string;
-  serving_description: string;
-  serving_url?: string;
-  metric_serving_amount?: string;
-  metric_serving_unit?: string;
-  number_of_units?: string;
-  measurement_description?: string;
-  calories: string;
-  carbohydrate: string;
-  protein: string;
-  fat: string;
-  saturated_fat?: string;
-  polyunsaturated_fat?: string;
-  monounsaturated_fat?: string;
-  trans_fat?: string;
-  cholesterol?: string;
-  sodium?: string;
-  potassium?: string;
-  fiber?: string;
-  sugar?: string;
-  added_sugars?: string;
-  vitamin_d?: string;
-  vitamin_a?: string;
-  vitamin_c?: string;
-  calcium?: string;
-  iron?: string;
-}
-
+// Food Search Types
 export interface FoodSearchResult {
   food_id: string;
   food_name: string;
@@ -97,7 +57,7 @@ export interface NormalizedFood {
   id: string;
   name: string;
   brand?: string;
-  source: 'fatsecret' | 'openfoodfacts' | 'usda' | 'custom';
+  source: 'openfoodfacts' | 'usda' | 'custom';
   servings: NormalizedServing[];
   imageUrl?: string;
 }

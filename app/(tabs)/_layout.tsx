@@ -28,13 +28,7 @@ export default function TabLayout() {
           fontSize: 12,
           fontWeight: '500',
         },
-        headerStyle: {
-          backgroundColor,
-        },
-        headerTintColor: isDark ? '#F9FAFB' : '#111827',
-        headerTitleStyle: {
-          fontWeight: '600',
-        },
+        headerShown: false,
       }}
     >
       <Tabs.Screen
@@ -42,7 +36,6 @@ export default function TabLayout() {
         options={{
           title: 'Today',
           tabBarIcon: ({ color, size }) => <Home size={size} color={color} />,
-          headerTitle: 'Dashboard',
         }}
       />
       <Tabs.Screen
@@ -50,7 +43,6 @@ export default function TabLayout() {
         options={{
           title: 'Search',
           tabBarIcon: ({ color, size }) => <Search size={size} color={color} />,
-          headerTitle: 'Search Foods',
         }}
       />
       <Tabs.Screen
@@ -58,7 +50,6 @@ export default function TabLayout() {
         options={{
           title: 'Scan',
           tabBarIcon: ({ color, size }) => <Camera size={size} color={color} />,
-          headerTitle: 'Barcode Scanner',
         }}
       />
       <Tabs.Screen
@@ -66,7 +57,6 @@ export default function TabLayout() {
         options={{
           title: 'Profile',
           tabBarIcon: ({ color, size }) => <User size={size} color={color} />,
-          headerTitle: 'Profile & Goals',
         }}
       />
     </Tabs>

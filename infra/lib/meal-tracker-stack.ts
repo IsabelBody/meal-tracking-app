@@ -1,9 +1,8 @@
 import * as cdk from 'aws-cdk-lib';
+import * as apigateway from 'aws-cdk-lib/aws-apigateway';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
-import * as apigateway from 'aws-cdk-lib/aws-apigateway';
-import * as iam from 'aws-cdk-lib/aws-iam';
 import { Construct } from 'constructs';
 import * as path from 'path';
 
@@ -46,6 +45,10 @@ export class MealTrackerStack extends cdk.Stack {
         userSrp: true,
       },
       preventUserExistenceErrors: true,
+      // Token validity configuration for "stay logged in" experience
+      accessTokenValidity: cdk.Duration.hours(1),
+      idTokenValidity: cdk.Duration.hours(1),
+      refreshTokenValidity: cdk.Duration.days(365), // 1 year - max is 10 years (3650 days)
     });
 
     // ==================== DYNAMODB TABLES ====================

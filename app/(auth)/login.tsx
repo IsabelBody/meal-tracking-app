@@ -44,24 +44,53 @@ export default function LoginScreen() {
         );
       }
     } catch (error: any) {
-      console.error('Login error:', error);
+      console.error('Login error:', JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
       
-      // Map Amplify error types to user-friendly messages
-      let errorMessage = 'Please check your credentials and try again.';
+      // Map Amplify v6 error types to user-friendly messages
+      // Amplify v6 may store the Cognito error code in various places
+      const errorCode = 
+        error?.name || 
+        error?.code || 
+        error?.underlyingError?.name ||
+        error?.cause?.name ||
+        error?.__type ||
+        '';
       
-      if (error.name === 'UserNotFoundException' || error.name === 'UserNotFoundError') {
-        errorMessage = 'No account found with this email. Please sign up first.';
-      } else if (error.name === 'NotAuthorizedException') {
-        errorMessage = 'Incorrect password. Please try again.';
-      } else if (error.name === 'UserNotConfirmedException') {
-        errorMessage = 'Please verify your email before signing in.';
-      } else if (error.name === 'InvalidParameterException') {
-        errorMessage = 'Please enter a valid email address.';
-      } else if (error.message && !error.message.includes('Unknown')) {
-        errorMessage = error.message;
+      // Also check the error message for Cognito error indicators
+      const errorMsg = error?.message || '';
+      
+      let userMessage = 'Please check your credentials and try again.';
+      
+      if (
+        errorCode === 'UserNotFoundException' || 
+        errorCode === 'UserNotFoundError' ||
+        errorMsg.includes('User does not exist')
+      ) {
+        userMessage = 'No account found with this email. Please sign up first.';
+      } else if (
+        errorCode === 'NotAuthorizedException' ||
+        errorMsg.includes('Incorrect username or password') ||
+        errorMsg.includes('password')
+      ) {
+        userMessage = 'Incorrect password. Please try again.';
+      } else if (
+        errorCode === 'UserNotConfirmedException' ||
+        errorMsg.includes('not confirmed')
+      ) {
+        userMessage = 'Please verify your email before signing in.';
+      } else if (errorCode === 'InvalidParameterException') {
+        userMessage = 'Please enter a valid email address.';
+      } else if (
+        errorCode === 'LimitExceededException' ||
+        errorMsg.includes('Attempt limit exceeded')
+      ) {
+        userMessage = 'Too many attempts. Please try again later.';
+      } else if (errorMsg && !errorMsg.includes('Unknown')) {
+        // Use the error message if it's meaningful
+        userMessage = errorMsg;
       }
       
-      Alert.alert('Login Failed', errorMessage);
+      Alert.alert('Login Failed', userMessage);
     } finally {
       setIsLoading(false);
     }

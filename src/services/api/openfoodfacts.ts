@@ -122,7 +122,6 @@ function extractNutritionPerServing(nutriments: OpenFoodFactsProduct['nutriments
 
 /**
  * Search products by name (limited functionality)
- * Note: Open Food Facts search is less reliable than FatSecret
  */
 export async function searchProducts(query: string, page: number = 1): Promise<NormalizedFood[]> {
   try {

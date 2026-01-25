@@ -71,7 +71,30 @@ export const useAuthStore = create<AuthState>()(
           set({ isLoading: false });
           return { success: false };
         } catch (error: any) {
-          set({ error: error.message || 'Login failed', isLoading: false });
+          // Extract error code from Amplify v6 error structure
+          const errorCode = 
+            error?.name || 
+            error?.code || 
+            error?.underlyingError?.name ||
+            error?.cause?.name ||
+            '';
+          const errorMsg = error?.message || '';
+          
+          let userMessage = 'Login failed. Please try again.';
+          
+          if (errorCode === 'UserNotFoundException' || errorMsg.includes('User does not exist')) {
+            userMessage = 'No account found with this email.';
+          } else if (errorCode === 'NotAuthorizedException' || errorMsg.includes('Incorrect')) {
+            userMessage = 'Incorrect password.';
+          } else if (errorCode === 'UserNotConfirmedException') {
+            userMessage = 'Please verify your email first.';
+          } else if (errorCode === 'LimitExceededException') {
+            userMessage = 'Too many attempts. Try again later.';
+          } else if (errorMsg && !errorMsg.includes('Unknown')) {
+            userMessage = errorMsg;
+          }
+          
+          set({ error: userMessage, isLoading: false });
           return { success: false };
         }
       },

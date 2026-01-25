@@ -14,7 +14,7 @@ export interface DiaryEntry {
   servingUnit: string;
   servingDescription: string;
   nutrition: Nutrition;
-  source: 'fatsecret' | 'openfoodfacts' | 'custom';
+  source: 'openfoodfacts' | 'usda' | 'custom';
   createdAt: string;
   updatedAt: string;
   // Cloud sync fields

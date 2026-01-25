@@ -9,8 +9,8 @@ import 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { TamaguiProvider, Theme } from 'tamagui';
 
-import { ToastContainer } from '../src/components/Toast';
 import { ErrorBoundary } from '../src/components/ErrorBoundary';
+import { ToastContainer } from '../src/components/Toast';
 import { ToastProvider } from '../src/contexts/toast';
 import { configureAWS } from '../src/services/aws/config';
 import { useAuthStore } from '../src/stores/auth.store';
@@ -68,22 +68,16 @@ export default function RootLayout() {
           <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
             <ToastProvider>
               <ErrorBoundary>
-                <Stack>
-                  <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                  <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+                <Stack screenOptions={{ headerShown: false }}>
+                  <Stack.Screen name="(tabs)" />
+                  <Stack.Screen name="(auth)" />
                   <Stack.Screen 
                     name="food/[id]" 
-                    options={{ 
-                      title: 'Food Details',
-                      presentation: 'card',
-                    }} 
+                    options={{ presentation: 'card' }} 
                   />
                   <Stack.Screen 
                     name="add-food" 
-                    options={{ 
-                      title: 'Add Food',
-                      presentation: 'modal',
-                    }} 
+                    options={{ presentation: 'modal' }} 
                   />
                 </Stack>
               </ErrorBoundary>

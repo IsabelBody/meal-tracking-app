@@ -4,7 +4,7 @@ A nutrition tracking app similar to Cronometer/MyFitnessPal, built with React Na
 
 ## Features
 
-- **Food Search**: Search FatSecret's database of 1.9M+ foods
+- **Food Search**: Search USDA FoodData Central database
 - **Barcode Scanning**: Scan product barcodes using Open Food Facts (free tier)
 - **Food Diary**: Track meals by breakfast, lunch, dinner, snacks
 - **Macro Tracking**: Monitor calories, protein, carbs, and fat
@@ -28,7 +28,7 @@ A nutrition tracking app similar to Cronometer/MyFitnessPal, built with React Na
 - **Infrastructure**: AWS CDK
 
 ### APIs
-- **FatSecret Platform API**: Food nutrition database (Basic tier)
+- **USDA FoodData Central**: Food nutrition database (free API)
 - **Open Food Facts**: Free barcode database
 
 ## Project Structure
@@ -68,7 +68,7 @@ meal-tracking-app/
 - Expo CLI (`npm install -g expo-cli`)
 - AWS CLI configured with your profile
 - AWS CDK CLI (`npm install -g aws-cdk`)
-- FatSecret API credentials (register at https://platform.fatsecret.com)
+- USDA API key (optional, get from https://fdc.nal.usda.gov/api-key-signup)
 
 ### 1. Install Dependencies
 
@@ -94,10 +94,6 @@ cp .env.example .env.local
 
 ```bash
 cd infra
-
-# Set FatSecret credentials
-export FATSECRET_CLIENT_ID=your_client_id
-export FATSECRET_CLIENT_SECRET=your_client_secret
 
 # Bootstrap CDK (first time only)
 cdk bootstrap --profile personal
@@ -136,11 +132,10 @@ npm run ios
 
 ## API Rate Limits
 
-### FatSecret Basic Tier
-- 5,000 API calls per day
-- US dataset only
-- No barcode scanning (use Open Food Facts instead)
-- Attribution required
+### USDA FoodData Central
+- Free API with generous rate limits
+- DEMO_KEY: 30 requests/hour, 50 requests/day
+- Registered key: 1,000 requests/hour
 
 ### Open Food Facts
 - Unlimited calls (be respectful)
@@ -149,7 +144,6 @@ npm run ios
 
 ## Caching Strategy
 
-To stay within FatSecret's rate limits:
 - Search results cached for 24 hours
 - Food details cached by ID
 - Recent foods stored locally
@@ -175,12 +169,6 @@ npx expo run:ios
 - **Business Logic**: Feature-specific hooks in `src/features/`
 - **State**: Zustand stores in `src/stores/`
 - **Types**: Shared types in `src/types/`
-
-## Attribution
-
-This app uses the FatSecret Platform API. As per the Basic tier requirements:
-
-> Powered by FatSecret Platform API
 
 ## License
 
