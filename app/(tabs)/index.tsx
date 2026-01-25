@@ -1,4 +1,4 @@
-import { AlertCircle, Cloud, CloudOff, Plus, RefreshCw } from '@tamagui/lucide-icons';
+import { AlertCircle, Cloud, CloudOff, Plus, RefreshCw, Trash2 } from '@tamagui/lucide-icons';
 import { useRouter } from 'expo-router';
 import { memo, useCallback, useEffect, useMemo } from 'react';
 import { RefreshControl, ScrollView, useColorScheme } from 'react-native';
@@ -90,6 +90,15 @@ export default function DashboardScreen() {
       return { ...meal, entries: mealEntries, calories: mealCalories };
     });
   }, [entries]);
+
+  // Get delete handler
+  const deleteEntry = useDiaryStore((state) => state.deleteEntry);
+  const token = useAuthStore((state) => state.token);
+
+  const handleDeleteEntry = useCallback(async (entryId: string) => {
+    await deleteEntry(entryId, selectedDate, token ?? undefined);
+    showSuccess('Entry deleted');
+  }, [deleteEntry, selectedDate, token, showSuccess]);
 
   return (
     <ScrollView
@@ -209,6 +218,7 @@ export default function DashboardScreen() {
           key={meal.type}
           meal={meal}
           onAddFood={handleAddFood}
+          onDeleteEntry={handleDeleteEntry}
         />
       ))}
     </ScrollView>
@@ -218,9 +228,11 @@ export default function DashboardScreen() {
 const MealCard = memo(function MealCard({
   meal,
   onAddFood,
+  onDeleteEntry,
 }: {
   meal: { type: MealType; label: string; entries: any[]; calories: number };
   onAddFood: (mealType: MealType) => void;
+  onDeleteEntry: (entryId: string) => void;
 }) {
   return (
     <Card
@@ -259,6 +271,7 @@ const MealCard = memo(function MealCard({
               justifyContent="space-between"
               alignItems="center"
               paddingVertical="$2"
+              gap="$2"
             >
               <YStack flex={1}>
                 <Text fontSize="$3" color="$color" numberOfLines={1}>
@@ -268,9 +281,20 @@ const MealCard = memo(function MealCard({
                   {entry.servingAmount} {entry.servingUnit}
                 </Text>
               </YStack>
-              <Text fontSize="$3" color="$colorHover">
-                {Math.round(entry.nutrition.calories)} cal
-              </Text>
+              <XStack alignItems="center" gap="$2">
+                <Text fontSize="$3" color="$colorHover">
+                  {Math.round(entry.nutrition.calories)} cal
+                </Text>
+                <Button
+                  size="$2"
+                  circular
+                  backgroundColor="transparent"
+                  pressStyle={{ backgroundColor: '$backgroundHover' }}
+                  onPress={() => onDeleteEntry(entry.id)}
+                >
+                  <Trash2 size={16} color="#EF4444" />
+                </Button>
+              </XStack>
             </XStack>
           ))}
         </YStack>
