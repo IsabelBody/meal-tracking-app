@@ -138,14 +138,16 @@ export const MacroProgress = memo(function MacroProgress({
       <Text fontSize="$2" color="$colorHover">
         {label}
       </Text>
-      <Progress
-        value={progress}
-        backgroundColor="$backgroundHover"
-        height={6}
-        width={60}
-      >
-        <Progress.Indicator backgroundColor={color} />
-      </Progress>
+      <YStack width="100%">
+        <Progress
+          value={progress}
+          backgroundColor="$backgroundHover"
+          height={6}
+          width="100%"
+        >
+          <Progress.Indicator backgroundColor={color} />
+        </Progress>
+      </YStack>
       <Text fontSize="$3" fontWeight="600" color="$color">
         {Math.round(current)}g
       </Text>
