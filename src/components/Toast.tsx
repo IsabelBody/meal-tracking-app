@@ -7,7 +7,7 @@
 
 import { AlertCircle, CheckCircle, Info, X, AlertTriangle } from '@tamagui/lucide-icons';
 import React, { useEffect, useRef } from 'react';
-import { Animated, Pressable, StyleSheet, Dimensions } from 'react-native';
+import { Animated, Pressable, StyleSheet, Dimensions, useColorScheme } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text, XStack, YStack } from 'tamagui';
 
@@ -22,7 +22,7 @@ interface ToastColors {
   icon: string;
 }
 
-const TOAST_COLORS: Record<ToastVariant, ToastColors> = {
+const TOAST_COLORS_LIGHT: Record<ToastVariant, ToastColors> = {
   success: {
     background: '#ECFDF5',
     border: '#10B981',
@@ -49,6 +49,33 @@ const TOAST_COLORS: Record<ToastVariant, ToastColors> = {
   },
 };
 
+const TOAST_COLORS_DARK: Record<ToastVariant, ToastColors> = {
+  success: {
+    background: '#052E16',
+    border: '#10B981',
+    text: '#6EE7B7',
+    icon: '#10B981',
+  },
+  error: {
+    background: '#450A0A',
+    border: '#EF4444',
+    text: '#FCA5A5',
+    icon: '#EF4444',
+  },
+  warning: {
+    background: '#451A03',
+    border: '#F59E0B',
+    text: '#FCD34D',
+    icon: '#F59E0B',
+  },
+  info: {
+    background: '#1E3A5F',
+    border: '#3B82F6',
+    text: '#93C5FD',
+    icon: '#3B82F6',
+  },
+};
+
 const TOAST_ICONS: Record<ToastVariant, React.ComponentType<any>> = {
   success: CheckCircle,
   error: AlertCircle,
@@ -59,13 +86,14 @@ const TOAST_ICONS: Record<ToastVariant, React.ComponentType<any>> = {
 interface ToastItemProps {
   toast: ToastType;
   onDismiss: () => void;
+  isDark: boolean;
 }
 
-function ToastItem({ toast, onDismiss }: ToastItemProps) {
+function ToastItem({ toast, onDismiss, isDark }: ToastItemProps) {
   const translateY = useRef(new Animated.Value(-100)).current;
   const opacity = useRef(new Animated.Value(0)).current;
 
-  const colors = TOAST_COLORS[toast.type];
+  const colors = isDark ? TOAST_COLORS_DARK[toast.type] : TOAST_COLORS_LIGHT[toast.type];
   const Icon = TOAST_ICONS[toast.type];
 
   useEffect(() => {
@@ -166,6 +194,8 @@ function ToastItem({ toast, onDismiss }: ToastItemProps) {
 export function ToastContainer() {
   const { toasts, hideToast } = useToast();
   const insets = useSafeAreaInsets();
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
 
   if (toasts.length === 0) {
     return null;
@@ -186,6 +216,7 @@ export function ToastContainer() {
           key={toast.id}
           toast={toast}
           onDismiss={() => hideToast(toast.id)}
+          isDark={isDark}
         />
       ))}
     </YStack>

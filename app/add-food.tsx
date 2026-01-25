@@ -1,7 +1,7 @@
 import { Minus, Plus } from '@tamagui/lucide-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, ScrollView } from 'react-native';
+import { Alert, ScrollView, useColorScheme } from 'react-native';
 import {
     Button,
     Card,
@@ -21,6 +21,8 @@ import { scaleNutrition } from '../src/utils/nutrition';
 
 export default function AddFoodScreen() {
   const router = useRouter();
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
   const params = useLocalSearchParams<{
     mealType?: string;
     date?: string;
@@ -121,7 +123,7 @@ export default function AddFoodScreen() {
 
   return (
     <ScrollView
-      style={{ flex: 1, backgroundColor: '#F9FAFB' }}
+      style={{ flex: 1, backgroundColor: isDark ? '#111827' : '#F9FAFB' }}
       contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
     >
       {/* Food Header */}

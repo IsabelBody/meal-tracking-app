@@ -93,20 +93,6 @@ export class MealTrackerStack extends cdk.Stack {
 
     // ==================== LAMBDA FUNCTIONS ====================
 
-    // FatSecret API Proxy Lambda
-    const fatSecretProxyLambda = new lambda.Function(this, 'FatSecretProxyLambda', {
-      functionName: 'meal-tracker-fatsecret-proxy',
-      runtime: lambda.Runtime.NODEJS_20_X,
-      handler: 'index.handler',
-      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda/fatsecret-proxy')),
-      timeout: cdk.Duration.seconds(30),
-      memorySize: 256,
-      environment: {
-        FATSECRET_CLIENT_ID: process.env.FATSECRET_CLIENT_ID || 'YOUR_CLIENT_ID',
-        FATSECRET_CLIENT_SECRET: process.env.FATSECRET_CLIENT_SECRET || 'YOUR_CLIENT_SECRET',
-      },
-    });
-
     // Diary API Lambda
     const diaryApiLambda = new lambda.Function(this, 'DiaryApiLambda', {
       functionName: 'meal-tracker-diary-api',
@@ -129,24 +115,13 @@ export class MealTrackerStack extends cdk.Stack {
 
     const api = new apigateway.RestApi(this, 'MealTrackerApi', {
       restApiName: 'Meal Tracker API',
-      description: 'API for Meal Tracker app - FatSecret proxy and diary management',
+      description: 'API for Meal Tracker app - diary management',
       defaultCorsPreflightOptions: {
         allowOrigins: apigateway.Cors.ALL_ORIGINS,
         allowMethods: apigateway.Cors.ALL_METHODS,
         allowHeaders: ['Content-Type', 'Authorization', 'X-Amz-Date', 'X-Api-Key'],
       },
     });
-
-    // FatSecret endpoints
-    const foodsResource = api.root.addResource('foods');
-    
-    // GET /foods/search?q=query
-    const searchResource = foodsResource.addResource('search');
-    searchResource.addMethod('GET', new apigateway.LambdaIntegration(fatSecretProxyLambda));
-
-    // GET /foods/{id}
-    const foodByIdResource = foodsResource.addResource('{id}');
-    foodByIdResource.addMethod('GET', new apigateway.LambdaIntegration(fatSecretProxyLambda));
 
     // Diary endpoints (protected by Cognito)
     const cognitoAuthorizer = new apigateway.CognitoUserPoolsAuthorizer(this, 'CognitoAuthorizer', {

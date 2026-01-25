@@ -1,7 +1,7 @@
 import { Minus, Plus, Star, StarOff } from '@tamagui/lucide-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, ScrollView } from 'react-native';
+import { Alert, ScrollView, useColorScheme } from 'react-native';
 import {
     Button,
     Card,
@@ -25,6 +25,8 @@ import { scaleNutrition } from '../../src/utils/nutrition';
 export default function FoodDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
 
   const {
     getCachedFood,
@@ -151,7 +153,7 @@ export default function FoodDetailScreen() {
   if (error || !food) {
     return (
       <YStack flex={1} justifyContent="center" alignItems="center" padding="$4" backgroundColor="$background">
-        <Text color="#DC2626" textAlign="center">{error || 'Food not found'}</Text>
+        <Text color={isDark ? '#FCA5A5' : '#DC2626'} textAlign="center">{error || 'Food not found'}</Text>
         <Button marginTop="$4" onPress={() => router.back()}>
           Go Back
         </Button>
@@ -161,7 +163,7 @@ export default function FoodDetailScreen() {
 
   return (
     <ScrollView
-      style={{ flex: 1, backgroundColor: '#F9FAFB' }}
+      style={{ flex: 1, backgroundColor: isDark ? '#111827' : '#F9FAFB' }}
       contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
     >
       {/* Food Header */}

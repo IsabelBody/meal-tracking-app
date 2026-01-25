@@ -1,7 +1,7 @@
 import { AlertCircle, ChevronRight, Clock, RefreshCw, Search, Star, X } from '@tamagui/lucide-icons';
 import { useRouter } from 'expo-router';
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
-import { FlatList, Keyboard } from 'react-native';
+import { FlatList, Keyboard, useColorScheme } from 'react-native';
 import {
     Button,
     Card,
@@ -73,6 +73,8 @@ const FoodItem = memo(function FoodItem({
 
 export default function SearchScreen() {
   const router = useRouter();
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
   const [localQuery, setLocalQuery] = useState('');
   const { showError } = useToast();
   const { error: handlerError, handleError, clearError } = useErrorHandler({
@@ -220,17 +222,17 @@ export default function SearchScreen() {
       {searchError && (
         <Card 
           padding="$4" 
-          backgroundColor="#FEF2F2" 
+          backgroundColor={isDark ? '#450A0A' : '#FEF2F2'} 
           marginBottom="$3"
           borderWidth={1}
-          borderColor="#FECACA"
+          borderColor={isDark ? '#7F1D1D' : '#FECACA'}
           borderRadius="$4"
         >
           <XStack alignItems="flex-start" gap="$3">
             <AlertCircle size={20} color="#EF4444" style={{ marginTop: 2 }} />
             <YStack flex={1} gap="$2">
-              <Text fontWeight="600" color="#991B1B">Search Failed</Text>
-              <Text color="#DC2626" fontSize="$3">{searchError}</Text>
+              <Text fontWeight="600" color={isDark ? '#FCA5A5' : '#991B1B'}>Search Failed</Text>
+              <Text color={isDark ? '#FCA5A5' : '#DC2626'} fontSize="$3">{searchError}</Text>
               {handlerError?.isRetryable && (
                 <Button
                   size="$3"

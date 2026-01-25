@@ -1,7 +1,7 @@
 import { AlertCircle, Cloud, CloudOff, Plus, RefreshCw } from '@tamagui/lucide-icons';
 import { useRouter } from 'expo-router';
 import { memo, useCallback, useEffect, useMemo } from 'react';
-import { RefreshControl, ScrollView } from 'react-native';
+import { RefreshControl, ScrollView, useColorScheme } from 'react-native';
 import {
     Button,
     Card,
@@ -26,6 +26,8 @@ import { sumNutrition } from '../../src/utils/nutrition';
 
 export default function DashboardScreen() {
   const router = useRouter();
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
   const { showError, showSuccess } = useToast();
   const selectedDate = useDiaryStore((state) => state.selectedDate);
   const diaryError = useDiaryStore((state) => state.error);
@@ -89,7 +91,7 @@ export default function DashboardScreen() {
 
   return (
     <ScrollView
-      style={{ flex: 1, backgroundColor: '#F9FAFB' }}
+      style={{ flex: 1, backgroundColor: isDark ? '#111827' : '#F9FAFB' }}
       contentContainerStyle={{ padding: 16 }}
       refreshControl={
         <RefreshControl

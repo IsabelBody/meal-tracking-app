@@ -1,7 +1,7 @@
 import { Cloud, LogIn, LogOut, Settings, Target, User } from '@tamagui/lucide-icons';
 import { useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Alert, ScrollView } from 'react-native';
+import { Alert, ScrollView, useColorScheme } from 'react-native';
 import {
   Button,
   Card,
@@ -22,6 +22,8 @@ import { DEFAULT_GOALS } from '../../src/types';
 
 export default function ProfileScreen() {
   const router = useRouter();
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
   const { goals, profile, updateGoals, updateProfile, resetGoals, isSyncing } = useGoalsStore();
   const { isAuthenticated, user, logout, getAccessToken, isLoading: authLoading } = useAuthStore();
 
@@ -104,7 +106,7 @@ export default function ProfileScreen() {
 
   return (
     <ScrollView
-      style={{ flex: 1, backgroundColor: '#F9FAFB' }}
+      style={{ flex: 1, backgroundColor: isDark ? '#111827' : '#F9FAFB' }}
       contentContainerStyle={{ padding: 16 }}
     >
       {/* Goals Section */}

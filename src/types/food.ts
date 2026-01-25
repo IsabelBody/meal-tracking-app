@@ -97,7 +97,7 @@ export interface NormalizedFood {
   id: string;
   name: string;
   brand?: string;
-  source: 'fatsecret' | 'openfoodfacts' | 'custom';
+  source: 'fatsecret' | 'openfoodfacts' | 'usda' | 'custom';
   servings: NormalizedServing[];
   imageUrl?: string;
 }

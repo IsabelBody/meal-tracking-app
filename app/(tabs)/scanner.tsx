@@ -2,7 +2,7 @@ import { Camera, Flashlight, FlashlightOff, Search } from '@tamagui/lucide-icons
 import { BarcodeScanningResult, CameraView, useCameraPermissions } from 'expo-camera';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, useColorScheme } from 'react-native';
 import {
     Button,
     Card,
@@ -19,6 +19,8 @@ import { NormalizedFood } from '../../src/types';
 
 export default function ScannerScreen() {
   const router = useRouter();
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
   const [permission, requestPermission] = useCameraPermissions();
   const [isScanning, setIsScanning] = useState(true);
   const [torch, setTorch] = useState(false);
@@ -235,8 +237,14 @@ export default function ScannerScreen() {
       {/* Error State */}
       {error && (
         <YStack flex={1} padding="$4" justifyContent="center" backgroundColor="$background">
-          <Card padding="$4" backgroundColor="#FEF2F2" marginBottom="$4">
-            <Text color="#DC2626" textAlign="center">{error}</Text>
+          <Card 
+            padding="$4" 
+            backgroundColor={isDark ? '#450A0A' : '#FEF2F2'} 
+            marginBottom="$4"
+            borderWidth={1}
+            borderColor={isDark ? '#7F1D1D' : '#FECACA'}
+          >
+            <Text color={isDark ? '#FCA5A5' : '#DC2626'} textAlign="center">{error}</Text>
           </Card>
           <YStack gap="$3">
             <Button
