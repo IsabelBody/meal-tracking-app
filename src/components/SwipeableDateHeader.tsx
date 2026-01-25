@@ -35,19 +35,29 @@ export function SwipeableDateHeader({
   const isDark = colorScheme === 'dark';
   const insets = useSafeAreaInsets();
 
+  // Use refs to store latest values so panResponder always has current data
+  const selectedDateRef = useRef(selectedDate);
+  const onDateChangeRef = useRef(onDateChange);
+  const viewingTodayRef = useRef(viewingToday);
+  
+  // Keep refs updated
+  selectedDateRef.current = selectedDate;
+  onDateChangeRef.current = onDateChange;
+  viewingTodayRef.current = viewingToday;
+
   const goToPreviousDay = useCallback(() => {
-    onDateChange(addDays(selectedDate, -1));
-  }, [selectedDate, onDateChange]);
+    onDateChangeRef.current(addDays(selectedDateRef.current, -1));
+  }, []);
 
   const goToNextDay = useCallback(() => {
-    if (!viewingToday) {
-      onDateChange(addDays(selectedDate, 1));
+    if (!viewingTodayRef.current) {
+      onDateChangeRef.current(addDays(selectedDateRef.current, 1));
     }
-  }, [selectedDate, onDateChange, viewingToday]);
+  }, []);
 
   const goToToday = useCallback(() => {
-    onDateChange(getTodayKey());
-  }, [onDateChange]);
+    onDateChangeRef.current(getTodayKey());
+  }, []);
 
   // Create pan responder that detects horizontal swipes
   const panResponder = useRef(
@@ -80,10 +90,10 @@ export function SwipeableDateHeader({
         // Determine if swipe was significant enough
         if (gestureState.dx > SWIPE_THRESHOLD) {
           // Swiped right -> go to previous day
-          goToPreviousDay();
-        } else if (gestureState.dx < -SWIPE_THRESHOLD) {
+          onDateChangeRef.current(addDays(selectedDateRef.current, -1));
+        } else if (gestureState.dx < -SWIPE_THRESHOLD && !viewingTodayRef.current) {
           // Swiped left -> go to next day (if not viewing today)
-          goToNextDay();
+          onDateChangeRef.current(addDays(selectedDateRef.current, 1));
         }
       },
       onPanResponderTerminate: () => {

@@ -1,20 +1,111 @@
-import { useMemo } from 'react';
-import { Card, H3, Progress, Text, XStack, YStack } from 'tamagui';
+import * as Clipboard from 'expo-clipboard';
+import { useCallback, useMemo } from 'react';
+import { Button, Card, H3, Progress, Text, XStack, YStack } from 'tamagui';
+
+import { Copy } from '@tamagui/lucide-icons';
 
 import {
     MicronutrientHighlights,
     NutritionDisplay,
     SwipeableDateHeader,
 } from '../../src/components';
+import { useToast } from '../../src/contexts/toast';
 import { useDateEntries, useDiaryStore } from '../../src/stores/diary.store';
 import { useGoalsStore, useNutritionProgress } from '../../src/stores/goals.store';
+import { NUTRIENT_METADATA, Nutrition } from '../../src/types/food';
 import { getMacroPercentages, sumNutrition } from '../../src/utils/nutrition';
+
+/**
+ * Format nutrition data as readable text for clipboard
+ */
+function formatNutritionForClipboard(
+  totals: Nutrition,
+  goals: { calories: number; protein: number; carbs: number; fat: number },
+  date: string,
+  entryCount: number
+): string {
+  const lines: string[] = [];
+  
+  lines.push(`Nutrition Summary for ${date}`);
+  lines.push(`(${entryCount} ${entryCount === 1 ? 'entry' : 'entries'})`);
+  lines.push('');
+  
+  // Macronutrients with goals
+  lines.push('=== MACRONUTRIENTS ===');
+  lines.push(`Calories: ${Math.round(totals.calories)} / ${goals.calories} kcal`);
+  lines.push(`Protein: ${Math.round(totals.protein)}g / ${goals.protein}g`);
+  lines.push(`Carbs: ${Math.round(totals.carbs)}g / ${goals.carbs}g`);
+  lines.push(`Fat: ${Math.round(totals.fat)}g / ${goals.fat}g`);
+  
+  if (totals.fiber !== undefined && totals.fiber > 0) {
+    lines.push(`Fiber: ${totals.fiber.toFixed(1)}g`);
+  }
+  if (totals.sugar !== undefined && totals.sugar > 0) {
+    lines.push(`Sugar: ${totals.sugar.toFixed(1)}g`);
+  }
+  
+  // Fats breakdown
+  const fats = NUTRIENT_METADATA.filter(n => n.category === 'fats');
+  const fatValues = fats.filter(n => {
+    const val = totals[n.key];
+    return val !== undefined && val !== null && val !== 0;
+  });
+  if (fatValues.length > 0) {
+    lines.push('');
+    lines.push('=== FATS ===');
+    fatValues.forEach(n => {
+      const val = totals[n.key];
+      if (val !== undefined) {
+        lines.push(`${n.label}: ${val.toFixed(1)}${n.unit}`);
+      }
+    });
+  }
+  
+  // Minerals
+  const minerals = NUTRIENT_METADATA.filter(n => n.category === 'minerals');
+  const mineralValues = minerals.filter(n => {
+    const val = totals[n.key];
+    return val !== undefined && val !== null && val !== 0;
+  });
+  if (mineralValues.length > 0) {
+    lines.push('');
+    lines.push('=== MINERALS ===');
+    mineralValues.forEach(n => {
+      const val = totals[n.key];
+      if (val !== undefined) {
+        const dv = n.dailyValue ? ` (${Math.round((val / n.dailyValue) * 100)}% DV)` : '';
+        lines.push(`${n.label}: ${val.toFixed(1)}${n.unit}${dv}`);
+      }
+    });
+  }
+  
+  // Vitamins
+  const vitamins = NUTRIENT_METADATA.filter(n => n.category === 'vitamins');
+  const vitaminValues = vitamins.filter(n => {
+    const val = totals[n.key];
+    return val !== undefined && val !== null && val !== 0;
+  });
+  if (vitaminValues.length > 0) {
+    lines.push('');
+    lines.push('=== VITAMINS ===');
+    vitaminValues.forEach(n => {
+      const val = totals[n.key];
+      if (val !== undefined) {
+        const dv = n.dailyValue ? ` (${Math.round((val / n.dailyValue) * 100)}% DV)` : '';
+        lines.push(`${n.label}: ${val.toFixed(1)}${n.unit}${dv}`);
+      }
+    });
+  }
+  
+  return lines.join('\n');
+}
 
 export default function NutrientsScreen() {
   const selectedDate = useDiaryStore((state) => state.selectedDate);
   const setSelectedDate = useDiaryStore((state) => state.setSelectedDate);
   const entries = useDateEntries(selectedDate);
   const goals = useGoalsStore((state) => state.goals);
+  const { showSuccess, showError } = useToast();
 
   // Calculate totals
   const totals = useMemo(() => sumNutrition(entries), [entries]);
@@ -24,14 +115,37 @@ export default function NutrientsScreen() {
   // Check if we have any data for the day
   const hasEntries = entries.length > 0;
 
+  const handleCopyNutrition = useCallback(async () => {
+    if (!hasEntries) return;
+    
+    try {
+      const text = formatNutritionForClipboard(totals, goals, selectedDate, entries.length);
+      await Clipboard.setStringAsync(text);
+      showSuccess('Nutrition data copied to clipboard');
+    } catch {
+      showError('Failed to copy to clipboard');
+    }
+  }, [totals, goals, selectedDate, entries.length, hasEntries, showSuccess, showError]);
+
   return (
     <SwipeableDateHeader
       selectedDate={selectedDate}
       onDateChange={setSelectedDate}
       rightContent={
-        <Text fontSize="$3" color="$colorHover" marginLeft="$2">
-          {entries.length} {entries.length === 1 ? 'entry' : 'entries'}
-        </Text>
+        <XStack alignItems="center" gap="$2">
+          <Text fontSize="$3" color="$colorHover">
+            {entries.length} {entries.length === 1 ? 'entry' : 'entries'}
+          </Text>
+          {hasEntries && (
+            <Button
+              size="$2"
+              circular
+              chromeless
+              onPress={handleCopyNutrition}
+              icon={<Copy size={18} color="$colorHover" />}
+            />
+          )}
+        </XStack>
       }
     >
       {!hasEntries ? (
