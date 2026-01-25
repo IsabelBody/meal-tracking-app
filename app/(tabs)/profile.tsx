@@ -203,7 +203,7 @@ export default function ProfileScreen() {
               }
               keyboardType="numeric"
               placeholder="25"
-              size="$3"
+              paddingHorizontal="$2"
             />
           </YStack>
 

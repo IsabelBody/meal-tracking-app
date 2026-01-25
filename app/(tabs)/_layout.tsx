@@ -1,4 +1,4 @@
-import { Camera, Home, Search, User } from '@tamagui/lucide-icons';
+import { Book, Camera, PieChart, Search, User } from '@tamagui/lucide-icons';
 import { Tabs } from 'expo-router';
 import { useColorScheme } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -34,8 +34,15 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Today',
-          tabBarIcon: ({ color, size }) => <Home size={size} color={color} />,
+          title: 'Diary',
+          tabBarIcon: ({ color, size }) => <Book size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="nutrients"
+        options={{
+          title: 'Nutrients',
+          tabBarIcon: ({ color, size }) => <PieChart size={size} color={color} />,
         }}
       />
       <Tabs.Screen
