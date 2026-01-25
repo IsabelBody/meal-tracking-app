@@ -22,7 +22,7 @@ import { useAuthStore } from '../../src/stores/auth.store';
 import { useDateEntries, useDiaryStore } from '../../src/stores/diary.store';
 import { useGoalsStore, useNutritionProgress } from '../../src/stores/goals.store';
 import { MEAL_TYPES, MealType } from '../../src/types';
-import { addDays, getRelativeDateLabel, getTodayKey, isToday } from '../../src/utils/date';
+import { addDays, formatTime, getRelativeDateLabel, getTodayKey, isToday, isYesterday } from '../../src/utils/date';
 import { sumNutrition } from '../../src/utils/nutrition';
 
 export default function DashboardScreen() {
@@ -195,8 +195,8 @@ export default function DashboardScreen() {
           )}
         </XStack>
         
-        {/* Today Button - shown when not viewing today */}
-        {!viewingToday && (
+        {/* Today Button - shown when not viewing today or yesterday */}
+        {!viewingToday && !isYesterday(selectedDate) && (
           <XStack justifyContent="center">
             <Button
               size="$2"
@@ -341,9 +341,7 @@ const MealCard = memo(function MealCard({
                   {entry.foodName}
                 </Text>
                 <Text fontSize="$2" color="$colorHover">
-                  {entry.servingAmount === 1 
-                    ? entry.servingDescription 
-                    : `${entry.servingAmount} x ${entry.servingDescription}`}
+                  {formatTime(entry.createdAt)}
                 </Text>
               </YStack>
               <XStack alignItems="center" gap="$2">
