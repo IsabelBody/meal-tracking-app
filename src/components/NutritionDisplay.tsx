@@ -266,7 +266,7 @@ export const MicronutrientHighlights = memo(function MicronutrientHighlights({
   return (
     <YStack gap="$2">
       <Text fontSize="$3" fontWeight="600" color="$color" marginBottom="$1">
-        Notable Micronutrients
+        Micronutrients
       </Text>
       {highlights.map(({ meta, value, percent }) => (
         <YStack key={meta.key} gap="$1">

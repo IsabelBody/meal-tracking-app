@@ -101,7 +101,7 @@ export const MacroItem = memo(function MacroItem({
     : formatMacroValue(value, 0);
 
   return (
-    <YStack alignItems="center" width={70}>
+    <YStack alignItems="center" flex={1} minWidth={50} maxWidth={80}>
       <Text fontSize="$5" fontWeight="700" color={color}>
         {displayValue}
       </Text>
@@ -134,7 +134,7 @@ export const MacroProgress = memo(function MacroProgress({
   const progress = goal > 0 ? Math.min((current / goal) * 100, 100) : 0;
 
   return (
-    <YStack alignItems="center" width={80} gap="$2">
+    <YStack alignItems="center" flex={1} minWidth={60} maxWidth={100} gap="$2">
       <Text fontSize="$2" color="$colorHover">
         {label}
       </Text>
@@ -242,7 +242,7 @@ export const MacroCircleGroup = memo(function MacroCircleGroup({
   size = 'md',
 }: MacroCircleGroupProps) {
   return (
-    <XStack justifyContent="space-around" alignSelf="center">
+    <XStack justifyContent="space-between" width="100%" paddingHorizontal="$1">
       <MacroCircle
         label="Calories"
         value={calories}
@@ -293,7 +293,7 @@ export const MacroItemGroup = memo(function MacroItemGroup({
   fat,
 }: MacroItemGroupProps) {
   return (
-    <XStack justifyContent="space-around" alignSelf="center">
+    <XStack justifyContent="space-between" width="100%" paddingHorizontal="$1">
       <MacroItem
         label="Calories"
         value={calories}
@@ -348,7 +348,7 @@ export const MacroProgressGroup = memo(function MacroProgressGroup({
   goals,
 }: MacroProgressGroupProps) {
   return (
-    <XStack justifyContent="space-around" alignSelf="center">
+    <XStack justifyContent="space-between" width="100%" paddingHorizontal="$2">
       <MacroProgress
         label="Protein"
         current={current.protein}

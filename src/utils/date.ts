@@ -126,3 +126,15 @@ export function daysBetween(date1: Date | string, date2: Date | string): number 
   const diffTime = Math.abs(d2.getTime() - d1.getTime());
   return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 }
+
+/**
+ * Format ISO timestamp to time string (e.g., "10:30 AM")
+ */
+export function formatTime(isoTimestamp: string): string {
+  const date = new Date(isoTimestamp);
+  return date.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
+}
