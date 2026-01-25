@@ -1,4 +1,4 @@
-import { ChevronRight, Clock, Search, Star, X } from '@tamagui/lucide-icons';
+import { AlertCircle, ChevronRight, Clock, RefreshCw, Search, Star, X } from '@tamagui/lucide-icons';
 import { useRouter } from 'expo-router';
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { FlatList, Keyboard } from 'react-native';
@@ -13,9 +13,13 @@ import {
     YStack,
 } from 'tamagui';
 
+import { useToast } from '../../src/contexts/toast';
+import { useErrorHandler } from '../../src/hooks/useErrorHandler';
 import { parseQuickNutrition, searchFoods } from '../../src/services/api/fatsecret';
 import { useFoodSearchStore } from '../../src/stores/food-search.store';
 import { FoodSearchResult } from '../../src/types';
+import { isNetworkError } from '../../src/utils/errors';
+import { MacroCompact } from '../../src/components';
 
 // Memoized food item component
 const FoodItem = memo(function FoodItem({
@@ -51,20 +55,14 @@ const FoodItem = memo(function FoodItem({
             </Text>
           )}
           {quickNutrition && (
-            <XStack gap="$2" marginTop="$1">
-              <Text fontSize="$2" color="#10B981">
-                {quickNutrition.calories} cal
-              </Text>
-              <Text fontSize="$2" color="$colorHover">
-                P: {quickNutrition.protein}g
-              </Text>
-              <Text fontSize="$2" color="$colorHover">
-                C: {quickNutrition.carbs}g
-              </Text>
-              <Text fontSize="$2" color="$colorHover">
-                F: {quickNutrition.fat}g
-              </Text>
-            </XStack>
+            <YStack marginTop="$1">
+              <MacroCompact
+                calories={quickNutrition.calories ?? 0}
+                protein={quickNutrition.protein ?? 0}
+                carbs={quickNutrition.carbs ?? 0}
+                fat={quickNutrition.fat ?? 0}
+              />
+            </YStack>
           )}
         </YStack>
         <ChevronRight size={20} color="$colorHover" />
@@ -76,6 +74,10 @@ const FoodItem = memo(function FoodItem({
 export default function SearchScreen() {
   const router = useRouter();
   const [localQuery, setLocalQuery] = useState('');
+  const { showError } = useToast();
+  const { error: handlerError, handleError, clearError } = useErrorHandler({
+    showToast: false, // We'll handle toast display manually for retry functionality
+  });
   
   const {
     query,
@@ -102,6 +104,7 @@ export default function SearchScreen() {
         performSearch(localQuery.trim());
       } else if (localQuery.trim().length === 0) {
         clearSearch();
+        clearError();
       }
     }, 300);
 
@@ -110,6 +113,7 @@ export default function SearchScreen() {
 
   const performSearch = async (searchQuery: string) => {
     setQuery(searchQuery);
+    clearError();
     
     // Check cache first
     const cached = getCachedSearch(searchQuery);
@@ -123,19 +127,31 @@ export default function SearchScreen() {
       const result = await searchFoods(searchQuery);
       setResults(result.foods, result.totalResults, result.pageNumber);
       setCachedSearch(searchQuery, result.foods);
-      addRecentSearch(searchQuery);
+      // Note: We don't add to recent searches here - only when user selects a result
+      setSearchError(null);
     } catch (error) {
-      setSearchError(error instanceof Error ? error.message : 'Search failed');
+      const appError = handleError(error);
+      setSearchError(appError.userMessage);
     }
   };
 
+  const handleRetrySearch = useCallback(() => {
+    if (query) {
+      performSearch(query);
+    }
+  }, [query]);
+
   const handleFoodPress = useCallback((food: FoodSearchResult) => {
     Keyboard.dismiss();
+    // Only save to search history when user commits by selecting a result
+    if (query) {
+      addRecentSearch(query);
+    }
     router.push({
       pathname: '/food/[id]',
       params: { id: food.food_id },
     });
-  }, [router]);
+  }, [router, query, addRecentSearch]);
 
   const handleClear = useCallback(() => {
     setLocalQuery('');
@@ -202,8 +218,35 @@ export default function SearchScreen() {
 
       {/* Error State */}
       {searchError && (
-        <Card padding="$3" backgroundColor="#FEE2E2" marginBottom="$3">
-          <Text color="#DC2626">{searchError}</Text>
+        <Card 
+          padding="$4" 
+          backgroundColor="#FEF2F2" 
+          marginBottom="$3"
+          borderWidth={1}
+          borderColor="#FECACA"
+          borderRadius="$4"
+        >
+          <XStack alignItems="flex-start" gap="$3">
+            <AlertCircle size={20} color="#EF4444" style={{ marginTop: 2 }} />
+            <YStack flex={1} gap="$2">
+              <Text fontWeight="600" color="#991B1B">Search Failed</Text>
+              <Text color="#DC2626" fontSize="$3">{searchError}</Text>
+              {handlerError?.isRetryable && (
+                <Button
+                  size="$3"
+                  backgroundColor="#EF4444"
+                  color="white"
+                  icon={RefreshCw}
+                  onPress={handleRetrySearch}
+                  marginTop="$2"
+                  alignSelf="flex-start"
+                  pressStyle={{ opacity: 0.8 }}
+                >
+                  Try Again
+                </Button>
+              )}
+            </YStack>
+          </XStack>
         </Card>
       )}
 

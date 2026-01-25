@@ -1,26 +1,23 @@
-import { useState, useEffect, useCallback } from 'react';
-import { ScrollView, Alert } from 'react-native';
+import { Minus, Plus } from '@tamagui/lucide-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
+import { Alert, ScrollView } from 'react-native';
 import {
-  YStack,
-  XStack,
-  Text,
-  Card,
-  H2,
-  H3,
-  Button,
-  Select,
-  Adapt,
-  Sheet,
-  Separator,
+    Button,
+    Card,
+    H2,
+    H3,
+    Text,
+    XStack,
+    YStack,
 } from 'tamagui';
-import { Check, ChevronDown, Plus, Minus } from '@tamagui/lucide-icons';
 
-import { useDiaryStore } from '../src/stores/diary.store';
+import { MacroItemGroup } from '../src/components';
 import { useAuthStore } from '../src/stores/auth.store';
-import { NormalizedFood, NormalizedServing, MealType, MEAL_TYPES } from '../src/types';
-import { scaleNutrition } from '../src/utils/nutrition';
+import { useDiaryStore } from '../src/stores/diary.store';
+import { MEAL_TYPES, MealType, NormalizedFood, NormalizedServing } from '../src/types';
 import { getTodayKey } from '../src/utils/date';
+import { scaleNutrition } from '../src/utils/nutrition';
 
 export default function AddFoodScreen() {
   const router = useRouter();
@@ -166,42 +163,36 @@ export default function AddFoodScreen() {
       <Card elevate bordered padding="$4" marginBottom="$4" backgroundColor="$background">
         <H3 marginBottom="$3" color="$color">Serving Size</H3>
 
-        {/* Serving Type Selector */}
-        <Select
-          value={selectedServing?.id || ''}
-          onValueChange={(value) => {
-            const serving = food.servings.find((s) => s.id === value);
-            if (serving) setSelectedServing(serving);
-          }}
-        >
-          <Select.Trigger width="100%" iconAfter={ChevronDown}>
-            <Select.Value placeholder="Select serving" />
-          </Select.Trigger>
-
-          <Adapt when="sm" platform="touch">
-            <Sheet modal dismissOnSnapToBottom snapPointsMode="fit">
-              <Sheet.Frame>
-                <Sheet.ScrollView>
-                  <Adapt.Contents />
-                </Sheet.ScrollView>
-              </Sheet.Frame>
-              <Sheet.Overlay />
-            </Sheet>
-          </Adapt>
-
-          <Select.Content>
-            <Select.Viewport>
-              {food.servings.map((serving, index) => (
-                <Select.Item key={serving.id} index={index} value={serving.id}>
-                  <Select.ItemText>{serving.description}</Select.ItemText>
-                  <Select.ItemIndicator>
-                    <Check size={16} />
-                  </Select.ItemIndicator>
-                </Select.Item>
+        {/* Serving Type Selector - Only render Select if there are servings */}
+        {food.servings && food.servings.length > 0 ? (
+          <YStack>
+            {/* Use Button-based selector for better React Native compatibility */}
+            <XStack flexWrap="wrap" gap="$2">
+              {food.servings.map((serving) => (
+                <Button
+                  key={serving.id}
+                  size="$3"
+                  backgroundColor={selectedServing?.id === serving.id ? '#10B981' : '$background'}
+                  color={selectedServing?.id === serving.id ? 'white' : '$color'}
+                  borderWidth={1}
+                  borderColor={selectedServing?.id === serving.id ? '#10B981' : '$borderColor'}
+                  onPress={() => setSelectedServing(serving)}
+                  flexShrink={1}
+                >
+                  <Text 
+                    fontSize="$3" 
+                    color={selectedServing?.id === serving.id ? 'white' : '$color'}
+                    numberOfLines={1}
+                  >
+                    {serving.description}
+                  </Text>
+                </Button>
               ))}
-            </Select.Viewport>
-          </Select.Content>
-        </Select>
+            </XStack>
+          </YStack>
+        ) : (
+          <Text color="$colorHover">No serving sizes available</Text>
+        )}
 
         {/* Amount Selector */}
         <XStack alignItems="center" justifyContent="center" gap="$4" marginTop="$4">
@@ -234,28 +225,12 @@ export default function AddFoodScreen() {
       {scaledNutrition && (
         <Card elevate bordered padding="$4" marginBottom="$4" backgroundColor="$background">
           <H3 marginBottom="$3" color="$color">Nutrition</H3>
-          <XStack justifyContent="space-around">
-            <NutritionItem
-              label="Calories"
-              value={Math.round(scaledNutrition.calories)}
-              color="#10B981"
-            />
-            <NutritionItem
-              label="Protein"
-              value={`${Math.round(scaledNutrition.protein * 10) / 10}g`}
-              color="#EF4444"
-            />
-            <NutritionItem
-              label="Carbs"
-              value={`${Math.round(scaledNutrition.carbs * 10) / 10}g`}
-              color="#3B82F6"
-            />
-            <NutritionItem
-              label="Fat"
-              value={`${Math.round(scaledNutrition.fat * 10) / 10}g`}
-              color="#F59E0B"
-            />
-          </XStack>
+          <MacroItemGroup
+            calories={scaledNutrition.calories}
+            protein={scaledNutrition.protein}
+            carbs={scaledNutrition.carbs}
+            fat={scaledNutrition.fat}
+          />
         </Card>
       )}
 
@@ -272,23 +247,3 @@ export default function AddFoodScreen() {
   );
 }
 
-function NutritionItem({
-  label,
-  value,
-  color,
-}: {
-  label: string;
-  value: string | number;
-  color: string;
-}) {
-  return (
-    <YStack alignItems="center">
-      <Text fontSize="$5" fontWeight="700" color={color}>
-        {value}
-      </Text>
-      <Text fontSize="$2" color="$colorHover">
-        {label}
-      </Text>
-    </YStack>
-  );
-}

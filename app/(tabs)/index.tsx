@@ -1,37 +1,54 @@
-import { memo, useMemo, useCallback, useEffect } from 'react';
-import { ScrollView, RefreshControl } from 'react-native';
+import { AlertCircle, Cloud, CloudOff, Plus, RefreshCw } from '@tamagui/lucide-icons';
 import { useRouter } from 'expo-router';
+import { memo, useCallback, useEffect, useMemo } from 'react';
+import { RefreshControl, ScrollView } from 'react-native';
 import {
-  YStack,
-  XStack,
-  Text,
-  Card,
-  H2,
-  H3,
-  Paragraph,
-  Button,
-  Progress,
-  Separator,
+    Button,
+    Card,
+    H2,
+    H3,
+    Progress,
+    Separator,
+    Text,
+    XStack,
+    YStack
 } from 'tamagui';
-import { Plus, ChevronRight, Cloud, CloudOff } from '@tamagui/lucide-icons';
 
-import { useDiaryStore, useTodayEntries, useTodayTotals } from '../../src/stores/diary.store';
-import { useGoalsStore, useNutritionProgress } from '../../src/stores/goals.store';
-import { useAuthStore } from '../../src/stores/auth.store';
+import { MacroProgressGroup } from '../../src/components';
+import { useToast } from '../../src/contexts/toast';
 import { useSync } from '../../src/hooks/useSync';
+import { useAuthStore } from '../../src/stores/auth.store';
+import { useDateEntries, useDiaryStore } from '../../src/stores/diary.store';
+import { useGoalsStore, useNutritionProgress } from '../../src/stores/goals.store';
 import { MEAL_TYPES, MealType } from '../../src/types';
-import { getRelativeDateLabel, getTodayKey } from '../../src/utils/date';
+import { getRelativeDateLabel } from '../../src/utils/date';
 import { sumNutrition } from '../../src/utils/nutrition';
 
 export default function DashboardScreen() {
   const router = useRouter();
+  const { showError, showSuccess } = useToast();
   const selectedDate = useDiaryStore((state) => state.selectedDate);
-  const entries = useDiaryStore((state) => state.entries[selectedDate] || []);
+  const diaryError = useDiaryStore((state) => state.error);
+  const entries = useDateEntries(selectedDate);
   const goals = useGoalsStore((state) => state.goals);
+  const goalsError = useGoalsStore((state) => state.error);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   
   // Initialize sync
-  const { isSyncing, syncCurrentDate } = useSync();
+  const { isSyncing, syncCurrentDate, fullSync } = useSync();
+  
+  // Show toast when sync errors occur
+  useEffect(() => {
+    if (diaryError) {
+      showError(new Error(diaryError), 'Sync Error');
+    }
+  }, [diaryError, showError]);
+
+  useEffect(() => {
+    if (goalsError) {
+      showError(new Error(goalsError), 'Goals Sync Error');
+    }
+  }, [goalsError, showError]);
   
   // Memoize expensive calculations
   const totals = useMemo(() => sumNutrition(entries), [entries]);
@@ -45,11 +62,21 @@ export default function DashboardScreen() {
   }, [router, selectedDate]);
 
   // Pull to refresh
-  const handleRefresh = useCallback(() => {
+  const handleRefresh = useCallback(async () => {
     if (isAuthenticated) {
-      syncCurrentDate();
+      await syncCurrentDate();
     }
   }, [isAuthenticated, syncCurrentDate]);
+
+  // Retry sync after error
+  const handleRetrySync = useCallback(async () => {
+    if (isAuthenticated) {
+      await fullSync();
+    }
+  }, [isAuthenticated, fullSync]);
+
+  // Check if there's a sync error
+  const hasSyncError = !!(diaryError || goalsError);
 
   // Memoize meal groupings to avoid recalculating on every render
   const mealData = useMemo(() => {
@@ -78,10 +105,28 @@ export default function DashboardScreen() {
         <H2 color="$color">{getRelativeDateLabel(selectedDate)}</H2>
         {/* Sync Status Indicator */}
         {isAuthenticated ? (
-          <XStack alignItems="center" gap="$1" opacity={0.6}>
-            <Cloud size={16} color="#10B981" />
-            <Text fontSize="$1" color="#10B981">Synced</Text>
-          </XStack>
+          hasSyncError ? (
+            <XStack 
+              alignItems="center" 
+              gap="$1" 
+              onPress={handleRetrySync}
+              pressStyle={{ opacity: 0.7 }}
+            >
+              <AlertCircle size={16} color="#EF4444" />
+              <Text fontSize="$1" color="#EF4444">Sync Error</Text>
+              <RefreshCw size={12} color="#EF4444" />
+            </XStack>
+          ) : isSyncing ? (
+            <XStack alignItems="center" gap="$1" opacity={0.6}>
+              <RefreshCw size={16} color="#10B981" />
+              <Text fontSize="$1" color="#10B981">Syncing...</Text>
+            </XStack>
+          ) : (
+            <XStack alignItems="center" gap="$1" opacity={0.6}>
+              <Cloud size={16} color="#10B981" />
+              <Text fontSize="$1" color="#10B981">Synced</Text>
+            </XStack>
+          )
         ) : (
           <XStack alignItems="center" gap="$1" opacity={0.6}>
             <CloudOff size={16} color="$colorHover" />
@@ -135,29 +180,23 @@ export default function DashboardScreen() {
         backgroundColor="$background"
       >
         <H3 marginBottom="$3" color="$color">Macros</H3>
-        <XStack justifyContent="space-between">
-          <MacroItem
-            label="Protein"
-            current={totals.protein}
-            goal={goals.protein}
-            color="#EF4444"
-            progress={progress.protein}
-          />
-          <MacroItem
-            label="Carbs"
-            current={totals.carbs}
-            goal={goals.carbs}
-            color="#3B82F6"
-            progress={progress.carbs}
-          />
-          <MacroItem
-            label="Fat"
-            current={totals.fat}
-            goal={goals.fat}
-            color="#F59E0B"
-            progress={progress.fat}
-          />
-        </XStack>
+        <MacroProgressGroup
+          current={{
+            protein: totals.protein,
+            carbs: totals.carbs,
+            fat: totals.fat,
+          }}
+          goals={{
+            protein: goals.protein,
+            carbs: goals.carbs,
+            fat: goals.fat,
+          }}
+          progress={{
+            protein: progress.protein,
+            carbs: progress.carbs,
+            fat: progress.fat,
+          }}
+        />
       </Card>
 
       {/* Meal Sections */}
@@ -171,42 +210,6 @@ export default function DashboardScreen() {
     </ScrollView>
   );
 }
-
-const MacroItem = memo(function MacroItem({
-  label,
-  current,
-  goal,
-  color,
-  progress,
-}: {
-  label: string;
-  current: number;
-  goal: number;
-  color: string;
-  progress: number;
-}) {
-  return (
-    <YStack alignItems="center" flex={1} gap="$2">
-      <Text fontSize="$2" color="$colorHover">
-        {label}
-      </Text>
-      <Progress
-        value={progress}
-        backgroundColor="$backgroundHover"
-        height={6}
-        width={60}
-      >
-        <Progress.Indicator backgroundColor={color} />
-      </Progress>
-      <Text fontSize="$3" fontWeight="600" color="$color">
-        {Math.round(current)}g
-      </Text>
-      <Text fontSize="$1" color="$colorHover">
-        / {goal}g
-      </Text>
-    </YStack>
-  );
-});
 
 const MealCard = memo(function MealCard({
   meal,

@@ -1,9 +1,11 @@
+import { Camera, Home, Search, User } from '@tamagui/lucide-icons';
 import { Tabs } from 'expo-router';
 import { useColorScheme } from 'react-native';
-import { Home, Search, Camera, User } from '@tamagui/lucide-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
+  const insets = useSafeAreaInsets();
   const isDark = colorScheme === 'dark';
 
   const activeColor = '#10B981';
@@ -18,8 +20,8 @@ export default function TabLayout() {
         tabBarStyle: {
           backgroundColor,
           borderTopColor: isDark ? '#374151' : '#E5E7EB',
-          height: 60,
-          paddingBottom: 8,
+          height: 60 + insets.bottom,
+          paddingBottom: 8 + insets.bottom,
           paddingTop: 8,
         },
         tabBarLabelStyle: {

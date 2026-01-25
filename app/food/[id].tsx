@@ -1,28 +1,26 @@
-import { useState, useEffect } from 'react';
-import { ScrollView, Alert } from 'react-native';
+import { Minus, Plus, Star, StarOff } from '@tamagui/lucide-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { Alert, ScrollView } from 'react-native';
 import {
-  YStack,
-  XStack,
-  Text,
-  Card,
-  H2,
-  H3,
-  Button,
-  Spinner,
-  Select,
-  Adapt,
-  Sheet,
-  Separator,
+    Button,
+    Card,
+    H2,
+    H3,
+    Separator,
+    Spinner,
+    Text,
+    XStack,
+    YStack,
 } from 'tamagui';
-import { Check, ChevronDown, Star, StarOff, Plus, Minus } from '@tamagui/lucide-icons';
 
+import { MacroCircleGroup, MacroRow } from '../../src/components';
 import { getFoodById } from '../../src/services/api/fatsecret';
-import { useFoodSearchStore } from '../../src/stores/food-search.store';
 import { useDiaryStore } from '../../src/stores/diary.store';
-import { NormalizedFood, NormalizedServing, MealType, MEAL_TYPES } from '../../src/types';
-import { scaleNutrition } from '../../src/utils/nutrition';
+import { useFoodSearchStore } from '../../src/stores/food-search.store';
+import { MEAL_TYPES, MealType, NormalizedFood, NormalizedServing } from '../../src/types';
 import { getTodayKey } from '../../src/utils/date';
+import { scaleNutrition } from '../../src/utils/nutrition';
 
 export default function FoodDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -191,42 +189,33 @@ export default function FoodDetailScreen() {
       <Card elevate bordered padding="$4" marginBottom="$4" backgroundColor="$background">
         <H3 marginBottom="$3" color="$color">Serving Size</H3>
 
-        {/* Serving Type Selector */}
-        <Select
-          value={selectedServing?.id || ''}
-          onValueChange={(value) => {
-            const serving = food.servings.find((s) => s.id === value);
-            if (serving) setSelectedServing(serving);
-          }}
-        >
-          <Select.Trigger width="100%" iconAfter={ChevronDown}>
-            <Select.Value placeholder="Select serving" />
-          </Select.Trigger>
-
-          <Adapt when="sm" platform="touch">
-            <Sheet modal dismissOnSnapToBottom snapPointsMode="fit">
-              <Sheet.Frame>
-                <Sheet.ScrollView>
-                  <Adapt.Contents />
-                </Sheet.ScrollView>
-              </Sheet.Frame>
-              <Sheet.Overlay />
-            </Sheet>
-          </Adapt>
-
-          <Select.Content>
-            <Select.Viewport>
-              {food.servings.map((serving, index) => (
-                <Select.Item key={serving.id} index={index} value={serving.id}>
-                  <Select.ItemText>{serving.description}</Select.ItemText>
-                  <Select.ItemIndicator>
-                    <Check size={16} />
-                  </Select.ItemIndicator>
-                </Select.Item>
-              ))}
-            </Select.Viewport>
-          </Select.Content>
-        </Select>
+        {/* Serving Type Selector - Button-based for React Native compatibility */}
+        {food.servings && food.servings.length > 0 ? (
+          <XStack flexWrap="wrap" gap="$2">
+            {food.servings.map((serving) => (
+              <Button
+                key={serving.id}
+                size="$3"
+                backgroundColor={selectedServing?.id === serving.id ? '#10B981' : '$background'}
+                color={selectedServing?.id === serving.id ? 'white' : '$color'}
+                borderWidth={1}
+                borderColor={selectedServing?.id === serving.id ? '#10B981' : '$borderColor'}
+                onPress={() => setSelectedServing(serving)}
+                flexShrink={1}
+              >
+                <Text 
+                  fontSize="$3" 
+                  color={selectedServing?.id === serving.id ? 'white' : '$color'}
+                  numberOfLines={1}
+                >
+                  {serving.description}
+                </Text>
+              </Button>
+            ))}
+          </XStack>
+        ) : (
+          <Text color="$colorHover">No serving sizes available</Text>
+        )}
 
         {/* Amount Selector */}
         <XStack alignItems="center" justifyContent="center" gap="$4" marginTop="$4">
@@ -261,51 +250,33 @@ export default function FoodDetailScreen() {
           <H3 marginBottom="$3" color="$color">Nutrition</H3>
 
           {/* Main Macros */}
-          <XStack justifyContent="space-around" marginBottom="$4">
-            <NutritionCircle
-              label="Calories"
-              value={Math.round(scaledNutrition.calories)}
-              unit=""
-              color="#10B981"
+          <YStack marginBottom="$4">
+            <MacroCircleGroup
+              calories={scaledNutrition.calories}
+              protein={scaledNutrition.protein}
+              carbs={scaledNutrition.carbs}
+              fat={scaledNutrition.fat}
             />
-            <NutritionCircle
-              label="Protein"
-              value={Math.round(scaledNutrition.protein * 10) / 10}
-              unit="g"
-              color="#EF4444"
-            />
-            <NutritionCircle
-              label="Carbs"
-              value={Math.round(scaledNutrition.carbs * 10) / 10}
-              unit="g"
-              color="#3B82F6"
-            />
-            <NutritionCircle
-              label="Fat"
-              value={Math.round(scaledNutrition.fat * 10) / 10}
-              unit="g"
-              color="#F59E0B"
-            />
-          </XStack>
+          </YStack>
 
           <Separator marginVertical="$3" />
 
           {/* Additional Nutrients */}
           <YStack gap="$2">
             {scaledNutrition.fiber !== undefined && (
-              <NutritionRow label="Fiber" value={scaledNutrition.fiber} unit="g" />
+              <MacroRow label="Fiber" value={scaledNutrition.fiber} unit="g" />
             )}
             {scaledNutrition.sugar !== undefined && (
-              <NutritionRow label="Sugar" value={scaledNutrition.sugar} unit="g" />
+              <MacroRow label="Sugar" value={scaledNutrition.sugar} unit="g" />
             )}
             {scaledNutrition.sodium !== undefined && (
-              <NutritionRow label="Sodium" value={scaledNutrition.sodium} unit="mg" />
+              <MacroRow label="Sodium" value={scaledNutrition.sodium} unit="mg" />
             )}
             {scaledNutrition.saturatedFat !== undefined && (
-              <NutritionRow label="Saturated Fat" value={scaledNutrition.saturatedFat} unit="g" />
+              <MacroRow label="Saturated Fat" value={scaledNutrition.saturatedFat} unit="g" />
             )}
             {scaledNutrition.cholesterol !== undefined && (
-              <NutritionRow label="Cholesterol" value={scaledNutrition.cholesterol} unit="mg" />
+              <MacroRow label="Cholesterol" value={scaledNutrition.cholesterol} unit="mg" />
             )}
           </YStack>
         </Card>
@@ -344,60 +315,3 @@ export default function FoodDetailScreen() {
   );
 }
 
-function NutritionCircle({
-  label,
-  value,
-  unit,
-  color,
-}: {
-  label: string;
-  value: number;
-  unit: string;
-  color: string;
-}) {
-  return (
-    <YStack alignItems="center">
-      <YStack
-        width={70}
-        height={70}
-        borderRadius={35}
-        backgroundColor={`${color}15`}
-        borderWidth={3}
-        borderColor={color}
-        justifyContent="center"
-        alignItems="center"
-      >
-        <Text fontSize="$4" fontWeight="700" color={color}>
-          {value}
-        </Text>
-        {unit && (
-          <Text fontSize="$1" color={color}>
-            {unit}
-          </Text>
-        )}
-      </YStack>
-      <Text fontSize="$2" color="$colorHover" marginTop="$1">
-        {label}
-      </Text>
-    </YStack>
-  );
-}
-
-function NutritionRow({
-  label,
-  value,
-  unit,
-}: {
-  label: string;
-  value: number;
-  unit: string;
-}) {
-  return (
-    <XStack justifyContent="space-between" paddingVertical="$1">
-      <Text color="$colorHover">{label}</Text>
-      <Text fontWeight="500" color="$color">
-        {Math.round(value * 10) / 10}{unit}
-      </Text>
-    </XStack>
-  );
-}

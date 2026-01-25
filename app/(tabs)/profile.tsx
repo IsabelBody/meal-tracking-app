@@ -1,23 +1,23 @@
-import { useState, useCallback } from 'react';
-import { ScrollView, Alert } from 'react-native';
+import { Cloud, LogIn, LogOut, Settings, Target, User } from '@tamagui/lucide-icons';
 import { useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
+import { Alert, ScrollView } from 'react-native';
 import {
-  YStack,
-  XStack,
-  Text,
+  Button,
   Card,
   H3,
   Input,
-  Button,
-  Separator,
   Label,
-  Switch,
+  Separator,
   Spinner,
+  Switch,
+  Text,
+  XStack,
+  YStack,
 } from 'tamagui';
-import { Target, Settings, Info, User, LogOut, LogIn, Cloud } from '@tamagui/lucide-icons';
 
-import { useGoalsStore } from '../../src/stores/goals.store';
 import { useAuthStore } from '../../src/stores/auth.store';
+import { useGoalsStore } from '../../src/stores/goals.store';
 import { DEFAULT_GOALS } from '../../src/types';
 
 export default function ProfileScreen() {
@@ -294,31 +294,6 @@ export default function ProfileScreen() {
         )}
       </Card>
 
-      {/* About Section */}
-      <Card elevate bordered padding="$4" marginBottom="$4" backgroundColor="$background">
-        <XStack alignItems="center" gap="$2" marginBottom="$4">
-          <Info size={24} color="#10B981" />
-          <H3 color="$color">About</H3>
-        </XStack>
-
-        <YStack gap="$2">
-          <Text color="$color">Meal Tracker v1.0.0</Text>
-          <Text fontSize="$2" color="$colorHover">
-            Nutrition data powered by FatSecret and Open Food Facts
-          </Text>
-          <Separator marginVertical="$2" />
-          <Text fontSize="$2" color="$colorHover">
-            Track your meals, monitor macros, and achieve your nutrition goals.
-          </Text>
-        </YStack>
-      </Card>
-
-      {/* Attribution (required for FatSecret Basic tier) */}
-      <Card padding="$3" backgroundColor="$backgroundHover" marginBottom="$4">
-        <Text fontSize="$1" color="$colorHover" textAlign="center">
-          Powered by FatSecret Platform API
-        </Text>
-      </Card>
     </ScrollView>
   );
 }

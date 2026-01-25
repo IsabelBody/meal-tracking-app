@@ -1,15 +1,20 @@
 import {
-  FoodSearchResponse,
-  FoodSearchResult,
-  FatSecretFood,
-  NormalizedFood,
-  NormalizedServing,
-  Nutrition,
+    FatSecretFood,
+    FoodSearchResponse,
+    FoodSearchResult,
+    NormalizedFood,
+    NormalizedServing,
+    Nutrition,
 } from '../../types';
 import { parseNutritionValue } from '../../utils';
 
 // API base URL - this should point to your Lambda proxy
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3001/api';
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL;
+
+// Check if API URL is configured
+const isApiConfigured = (): boolean => {
+  return !!API_BASE_URL && API_BASE_URL.startsWith('http');
+};
 
 /**
  * Search for foods using FatSecret API (via Lambda proxy)
@@ -23,6 +28,14 @@ export async function searchFoods(
   totalResults: number;
   pageNumber: number;
 }> {
+  // Check if API is configured
+  if (!isApiConfigured()) {
+    console.warn('FatSecret API not configured. Set EXPO_PUBLIC_API_URL in your .env file.');
+    console.warn('Current value:', API_BASE_URL || '(not set)');
+    // Return empty results instead of failing when API is not configured
+    return { foods: [], totalResults: 0, pageNumber: 0 };
+  }
+
   try {
     const params = new URLSearchParams({
       q: query,
@@ -30,10 +43,13 @@ export async function searchFoods(
       max_results: String(maxResults),
     });
 
-    const response = await fetch(`${API_BASE_URL}/foods/search?${params}`);
+    const url = `${API_BASE_URL}/foods/search?${params}`;
+    
+    const response = await fetch(url);
     
     if (!response.ok) {
-      throw new Error(`Search failed: ${response.statusText}`);
+      const errorText = response.statusText || `HTTP ${response.status}`;
+      throw new Error(`Search failed: ${errorText}`);
     }
 
     const data: FoodSearchResponse = await response.json();
@@ -53,6 +69,11 @@ export async function searchFoods(
       pageNumber: parseInt(data.foods.page_number, 10),
     };
   } catch (error) {
+    // Provide more helpful error messages
+    if (error instanceof TypeError && error.message.includes('Network request failed')) {
+      console.error('FatSecret API network error - check if the API endpoint is accessible:', API_BASE_URL);
+      throw new Error('Unable to connect to food search service. Please check your internet connection.');
+    }
     console.error('FatSecret search error:', error);
     throw error;
   }
@@ -62,17 +83,29 @@ export async function searchFoods(
  * Get detailed food information by ID
  */
 export async function getFoodById(foodId: string): Promise<NormalizedFood | null> {
+  // Check if API is configured
+  if (!isApiConfigured()) {
+    console.warn('FatSecret API not configured. Set EXPO_PUBLIC_API_URL in your .env file.');
+    return null;
+  }
+
   try {
-    const response = await fetch(`${API_BASE_URL}/foods/${foodId}`);
+    const url = `${API_BASE_URL}/foods/${foodId}`;
+    const response = await fetch(url);
     
     if (!response.ok) {
       if (response.status === 404) return null;
-      throw new Error(`Get food failed: ${response.statusText}`);
+      const errorText = response.statusText || `HTTP ${response.status}`;
+      throw new Error(`Get food failed: ${errorText}`);
     }
 
     const data: { food: FatSecretFood } = await response.json();
     return normalizeFatSecretFood(data.food);
   } catch (error) {
+    if (error instanceof TypeError && error.message.includes('Network request failed')) {
+      console.error('FatSecret API network error - check if the API endpoint is accessible:', API_BASE_URL);
+      throw new Error('Unable to connect to food service. Please check your internet connection.');
+    }
     console.error('FatSecret get food error:', error);
     throw error;
   }

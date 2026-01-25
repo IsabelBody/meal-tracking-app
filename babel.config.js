@@ -8,6 +8,8 @@ module.exports = function (api) {
         {
           components: ['tamagui'],
           config: './tamagui.config.ts',
+          logTimings: false,
+          // Disable extraction to avoid parse errors on native
           disableExtraction: true,
         },
       ],

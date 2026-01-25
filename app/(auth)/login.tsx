@@ -1,18 +1,18 @@
-import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, Alert } from 'react-native';
-import { useRouter, Link } from 'expo-router';
-import {
-  YStack,
-  XStack,
-  Text,
-  Input,
-  Button,
-  H1,
-  Paragraph,
-  Spinner,
-} from 'tamagui';
+import { Eye, EyeOff, Lock, Mail } from '@tamagui/lucide-icons';
 import { signIn } from 'aws-amplify/auth';
-import { Mail, Lock, Eye, EyeOff } from '@tamagui/lucide-icons';
+import { Link, useRouter } from 'expo-router';
+import { useState } from 'react';
+import { Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import {
+    Button,
+    H1,
+    Input,
+    Paragraph,
+    Spinner,
+    Text,
+    XStack,
+    YStack,
+} from 'tamagui';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -45,10 +45,23 @@ export default function LoginScreen() {
       }
     } catch (error: any) {
       console.error('Login error:', error);
-      Alert.alert(
-        'Login Failed',
-        error.message || 'Please check your credentials and try again.'
-      );
+      
+      // Map Amplify error types to user-friendly messages
+      let errorMessage = 'Please check your credentials and try again.';
+      
+      if (error.name === 'UserNotFoundException' || error.name === 'UserNotFoundError') {
+        errorMessage = 'No account found with this email. Please sign up first.';
+      } else if (error.name === 'NotAuthorizedException') {
+        errorMessage = 'Incorrect password. Please try again.';
+      } else if (error.name === 'UserNotConfirmedException') {
+        errorMessage = 'Please verify your email before signing in.';
+      } else if (error.name === 'InvalidParameterException') {
+        errorMessage = 'Please enter a valid email address.';
+      } else if (error.message && !error.message.includes('Unknown')) {
+        errorMessage = error.message;
+      }
+      
+      Alert.alert('Login Failed', errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -180,15 +193,6 @@ export default function LoginScreen() {
           )}
         </YStack>
 
-        {/* Attribution */}
-        <Text
-          fontSize="$1"
-          color="$colorHover"
-          textAlign="center"
-          marginTop="$6"
-        >
-          Powered by FatSecret Platform API
-        </Text>
       </YStack>
     </KeyboardAvoidingView>
   );

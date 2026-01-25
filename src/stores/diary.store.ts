@@ -1,7 +1,9 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { useShallow } from 'zustand/react/shallow';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { v4 as uuidv4 } from 'uuid';
+import { useMemo } from 'react';
 import {
   DiaryEntry,
   MealType,
@@ -9,6 +11,9 @@ import {
 } from '../types';
 import { getTodayKey, formatDateKey, getISOTimestamp } from '../utils/date';
 import { sumNutrition } from '../utils/nutrition';
+
+// Stable empty array reference to avoid infinite re-renders
+const EMPTY_ENTRIES: DiaryEntry[] = [];
 import {
   getDiaryEntries,
   createDiaryEntry,
@@ -319,17 +324,19 @@ export const useDiaryStore = create<DiaryState>()(
 // Helper hooks for common operations
 export function useTodayEntries() {
   const today = getTodayKey();
-  return useDiaryStore((state) => state.entries[today] || []);
+  return useDiaryStore((state) => state.entries[today] ?? EMPTY_ENTRIES);
 }
 
 export function useTodayTotals() {
-  const today = getTodayKey();
-  return useDiaryStore((state) => {
-    const entries = state.entries[today] || [];
-    return sumNutrition(entries);
-  });
+  const entries = useTodayEntries();
+  return useMemo(() => sumNutrition(entries), [entries]);
 }
 
 export function useSelectedDateEntries() {
-  return useDiaryStore((state) => state.entries[state.selectedDate] || []);
+  return useDiaryStore((state) => state.entries[state.selectedDate] ?? EMPTY_ENTRIES);
+}
+
+// Hook to get entries for a specific date with stable reference
+export function useDateEntries(date: string) {
+  return useDiaryStore((state) => state.entries[date] ?? EMPTY_ENTRIES);
 }

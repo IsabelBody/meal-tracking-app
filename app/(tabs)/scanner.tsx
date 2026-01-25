@@ -1,18 +1,19 @@
-import { useState, useEffect } from 'react';
-import { StyleSheet, Alert } from 'react-native';
-import { useRouter } from 'expo-router';
-import { CameraView, useCameraPermissions, BarcodeScanningResult } from 'expo-camera';
-import {
-  YStack,
-  XStack,
-  Text,
-  Button,
-  Card,
-  Spinner,
-  Paragraph,
-} from 'tamagui';
 import { Camera, Flashlight, FlashlightOff, Search } from '@tamagui/lucide-icons';
+import { BarcodeScanningResult, CameraView, useCameraPermissions } from 'expo-camera';
+import { useRouter } from 'expo-router';
+import { useState } from 'react';
+import { StyleSheet } from 'react-native';
+import {
+    Button,
+    Card,
+    Paragraph,
+    Spinner,
+    Text,
+    XStack,
+    YStack,
+} from 'tamagui';
 
+import { MacroItemGroup } from '../../src/components';
 import { getProductByBarcode } from '../../src/services/api/openfoodfacts';
 import { NormalizedFood } from '../../src/types';
 
@@ -196,31 +197,14 @@ export default function ScannerScreen() {
                 <Text fontWeight="600" color="$color">
                   Nutrition per {scannedProduct.servings[0].description}
                 </Text>
-                <XStack justifyContent="space-between" marginTop="$2">
-                  <NutritionItem
-                    label="Calories"
-                    value={scannedProduct.servings[0].nutrition.calories}
-                    unit=""
+                <YStack marginTop="$2">
+                  <MacroItemGroup
+                    calories={scannedProduct.servings[0].nutrition.calories}
+                    protein={scannedProduct.servings[0].nutrition.protein}
+                    carbs={scannedProduct.servings[0].nutrition.carbs}
+                    fat={scannedProduct.servings[0].nutrition.fat}
                   />
-                  <NutritionItem
-                    label="Protein"
-                    value={scannedProduct.servings[0].nutrition.protein}
-                    unit="g"
-                    color="#EF4444"
-                  />
-                  <NutritionItem
-                    label="Carbs"
-                    value={scannedProduct.servings[0].nutrition.carbs}
-                    unit="g"
-                    color="#3B82F6"
-                  />
-                  <NutritionItem
-                    label="Fat"
-                    value={scannedProduct.servings[0].nutrition.fat}
-                    unit="g"
-                    color="#F59E0B"
-                  />
-                </XStack>
+                </YStack>
               </YStack>
             )}
           </Card>
@@ -281,23 +265,3 @@ export default function ScannerScreen() {
   );
 }
 
-function NutritionItem({
-  label,
-  value,
-  unit,
-  color = '#10B981',
-}: {
-  label: string;
-  value: number;
-  unit: string;
-  color?: string;
-}) {
-  return (
-    <YStack alignItems="center">
-      <Text fontSize="$2" color="$colorHover">{label}</Text>
-      <Text fontSize="$5" fontWeight="700" color={color}>
-        {Math.round(value)}{unit}
-      </Text>
-    </YStack>
-  );
-}
