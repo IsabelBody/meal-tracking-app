@@ -1,6 +1,8 @@
 import { ChevronLeft, ChevronRight } from '@tamagui/lucide-icons';
 import { useCallback, useRef } from 'react';
-import { Animated, PanResponder, RefreshControl, useColorScheme } from 'react-native';
+import { RefreshControl, ScrollView, useColorScheme } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button, H2, XStack, YStack } from 'tamagui';
 
@@ -19,7 +21,7 @@ interface SwipeableDateHeaderProps {
   onRefresh?: () => void;
 }
 
-const SWIPE_THRESHOLD = 80;
+const SWIPE_THRESHOLD = 100;
 
 export function SwipeableDateHeader({
   selectedDate,
@@ -30,20 +32,20 @@ export function SwipeableDateHeader({
   onRefresh,
 }: SwipeableDateHeaderProps) {
   const viewingToday = isToday(selectedDate);
-  const translateX = useRef(new Animated.Value(0)).current;
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const insets = useSafeAreaInsets();
-
-  // Use refs to store latest values so panResponder always has current data
+  
+  // Use refs for gesture handler callbacks
   const selectedDateRef = useRef(selectedDate);
   const onDateChangeRef = useRef(onDateChange);
   const viewingTodayRef = useRef(viewingToday);
   
-  // Keep refs updated
   selectedDateRef.current = selectedDate;
   onDateChangeRef.current = onDateChange;
   viewingTodayRef.current = viewingToday;
+
+  const translateX = useSharedValue(0);
 
   const goToPreviousDay = useCallback(() => {
     onDateChangeRef.current(addDays(selectedDateRef.current, -1));
@@ -59,130 +61,104 @@ export function SwipeableDateHeader({
     onDateChangeRef.current(getTodayKey());
   }, []);
 
-  // Create pan responder that detects horizontal swipes
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => false,
-      onMoveShouldSetPanResponder: (_, gestureState) => {
-        // Only capture horizontal gestures that are more horizontal than vertical
-        // This allows vertical scrolling to work normally
-        const isHorizontal = Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 1.5;
-        const isSignificant = Math.abs(gestureState.dx) > 15;
-        return isHorizontal && isSignificant;
-      },
-      onPanResponderGrant: () => {
-        translateX.setValue(0);
-      },
-      onPanResponderMove: (_, gestureState) => {
-        // Limit the swipe distance for visual feedback
-        const clampedDx = Math.max(-120, Math.min(120, gestureState.dx * 0.4));
-        translateX.setValue(clampedDx);
-      },
-      onPanResponderRelease: (_, gestureState) => {
-        // Animate back to center
-        Animated.spring(translateX, {
-          toValue: 0,
-          useNativeDriver: true,
-          tension: 100,
-          friction: 10,
-        }).start();
-
-        // Determine if swipe was significant enough
-        if (gestureState.dx > SWIPE_THRESHOLD) {
-          // Swiped right -> go to previous day
-          onDateChangeRef.current(addDays(selectedDateRef.current, -1));
-        } else if (gestureState.dx < -SWIPE_THRESHOLD && !viewingTodayRef.current) {
-          // Swiped left -> go to next day (if not viewing today)
-          onDateChangeRef.current(addDays(selectedDateRef.current, 1));
-        }
-      },
-      onPanResponderTerminate: () => {
-        Animated.spring(translateX, {
-          toValue: 0,
-          useNativeDriver: true,
-        }).start();
-      },
+  // Horizontal pan gesture for swiping between days
+  const panGesture = Gesture.Pan()
+    .activeOffsetX([-20, 20])
+    .failOffsetY([-10, 10])
+    .onUpdate((event) => {
+      translateX.value = event.translationX * 0.3;
     })
-  ).current;
+    .onEnd((event) => {
+      translateX.value = withSpring(0, { damping: 20, stiffness: 300 });
+      
+      if (event.translationX > SWIPE_THRESHOLD) {
+        runOnJS(goToPreviousDay)();
+      } else if (event.translationX < -SWIPE_THRESHOLD && !viewingTodayRef.current) {
+        runOnJS(goToNextDay)();
+      }
+    });
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: translateX.value }],
+  }));
 
   return (
-    <Animated.ScrollView
-      style={{ 
-        flex: 1, 
-        backgroundColor: isDark ? '#111827' : '#F9FAFB',
-        transform: [{ translateX }],
-      }}
-      contentContainerStyle={{ padding: 16, paddingTop: 16 + insets.top }}
-      refreshControl={
-        onRefresh ? (
-          <RefreshControl
-            refreshing={refreshing ?? false}
-            onRefresh={onRefresh}
-            colors={['#10B981']}
-            tintColor="#10B981"
-          />
-        ) : undefined
-      }
-      {...panResponder.panHandlers}
-    >
-      {/* Date Header */}
-      <YStack marginBottom="$4" gap="$2">
-        <XStack justifyContent="space-between" alignItems="center">
-          <XStack alignItems="center" gap="$2" flex={1}>
-            {/* Previous Day Button */}
-            <Button
-              size="$3"
-              circular
-              backgroundColor="transparent"
-              pressStyle={{ backgroundColor: '$backgroundHover' }}
-              onPress={goToPreviousDay}
-            >
-              <ChevronLeft size={24} color="$color" />
-            </Button>
+    <GestureDetector gesture={panGesture}>
+      <Animated.View style={[{ flex: 1, backgroundColor: isDark ? '#111827' : '#F9FAFB' }, animatedStyle]}>
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ padding: 16, paddingTop: 16 + insets.top }}
+          refreshControl={
+            onRefresh ? (
+              <RefreshControl
+                refreshing={refreshing ?? false}
+                onRefresh={onRefresh}
+                colors={['#10B981']}
+                tintColor="#10B981"
+              />
+            ) : undefined
+          }
+        >
+          {/* Date Header */}
+          <YStack marginBottom="$4" gap="$2">
+            <XStack justifyContent="space-between" alignItems="center">
+              <XStack alignItems="center" gap="$2" flex={1}>
+                {/* Previous Day Button */}
+                <Button
+                  size="$3"
+                  circular
+                  backgroundColor="transparent"
+                  pressStyle={{ backgroundColor: '$backgroundHover' }}
+                  onPress={goToPreviousDay}
+                >
+                  <ChevronLeft size={24} color="$color" />
+                </Button>
 
-            {/* Date Label */}
-            <YStack flex={1} alignItems="center">
-              <H2 color="$color" textAlign="center">
-                {getRelativeDateLabel(selectedDate)}
-              </H2>
-            </YStack>
+                {/* Date Label */}
+                <YStack flex={1} alignItems="center">
+                  <H2 color="$color" textAlign="center">
+                    {getRelativeDateLabel(selectedDate)}
+                  </H2>
+                </YStack>
 
-            {/* Next Day Button (disabled if viewing today) */}
-            <Button
-              size="$3"
-              circular
-              backgroundColor="transparent"
-              pressStyle={{ backgroundColor: viewingToday ? 'transparent' : '$backgroundHover' }}
-              onPress={goToNextDay}
-              disabled={viewingToday}
-              opacity={viewingToday ? 0.3 : 1}
-            >
-              <ChevronRight size={24} color="$color" />
-            </Button>
-          </XStack>
+                {/* Next Day Button (disabled if viewing today) */}
+                <Button
+                  size="$3"
+                  circular
+                  backgroundColor="transparent"
+                  pressStyle={{ backgroundColor: viewingToday ? 'transparent' : '$backgroundHover' }}
+                  onPress={goToNextDay}
+                  disabled={viewingToday}
+                  opacity={viewingToday ? 0.3 : 1}
+                >
+                  <ChevronRight size={24} color="$color" />
+                </Button>
+              </XStack>
 
-          {/* Optional right content (sync status, entry count, etc.) */}
-          {rightContent}
-        </XStack>
+              {/* Optional right content (sync status, entry count, etc.) */}
+              {rightContent}
+            </XStack>
 
-        {/* Today Button - shown when not viewing today or yesterday */}
-        {!viewingToday && !isYesterday(selectedDate) && (
-          <XStack justifyContent="center">
-            <Button
-              size="$2"
-              backgroundColor="#10B981"
-              color="white"
-              onPress={goToToday}
-              paddingHorizontal="$4"
-            >
-              Go to Today
-            </Button>
-          </XStack>
-        )}
-      </YStack>
+            {/* Today Button - shown when not viewing today or yesterday */}
+            {!viewingToday && !isYesterday(selectedDate) && (
+              <XStack justifyContent="center">
+                <Button
+                  size="$2"
+                  backgroundColor="#10B981"
+                  color="white"
+                  onPress={goToToday}
+                  paddingHorizontal="$4"
+                >
+                  Go to Today
+                </Button>
+              </XStack>
+            )}
+          </YStack>
 
-      {/* Page content */}
-      {children}
-    </Animated.ScrollView>
+          {/* Page content */}
+          {children}
+        </ScrollView>
+      </Animated.View>
+    </GestureDetector>
   );
 }

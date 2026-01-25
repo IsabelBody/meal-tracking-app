@@ -246,6 +246,8 @@ export default function ProfileScreen() {
             checked={profile.unitSystem === 'imperial'}
             onCheckedChange={handleToggleUnits}
             backgroundColor={profile.unitSystem === 'imperial' ? '#10B981' : '$backgroundHover'}
+            borderWidth={profile.unitSystem === 'imperial' ? 0 : 1}
+            borderColor="$borderColor"
           >
             <Switch.Thumb animation="bouncy" />
           </Switch>

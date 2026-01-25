@@ -5,9 +5,9 @@ import { Button, Card, H3, Progress, Text, XStack, YStack } from 'tamagui';
 import { Copy } from '@tamagui/lucide-icons';
 
 import {
-    MicronutrientHighlights,
-    NutritionDisplay,
-    SwipeableDateHeader,
+  MicronutrientHighlights,
+  NutritionDisplay,
+  SwipeableDateHeader,
 } from '../../src/components';
 import { useToast } from '../../src/contexts/toast';
 import { useDateEntries, useDiaryStore } from '../../src/stores/diary.store';

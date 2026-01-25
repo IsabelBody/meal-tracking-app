@@ -5,6 +5,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { useColorScheme } from 'react-native';
 import 'react-native-get-random-values'; // Must be first - polyfill for uuid
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { TamaguiProvider, Theme } from 'tamagui';
@@ -62,30 +63,32 @@ export default function RootLayout() {
   }
 
   return (
-    <SafeAreaProvider>
-      <TamaguiProvider config={config} defaultTheme={colorScheme || 'light'}>
-        <Theme name={colorScheme || 'light'}>
-          <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-            <ToastProvider>
-              <ErrorBoundary>
-                <Stack screenOptions={{ headerShown: false }}>
-                  <Stack.Screen name="(tabs)" />
-                  <Stack.Screen name="(auth)" />
-                  <Stack.Screen 
-                    name="food/[id]" 
-                    options={{ presentation: 'card' }} 
-                  />
-                  <Stack.Screen 
-                    name="add-food" 
-                    options={{ presentation: 'modal' }} 
-                  />
-                </Stack>
-              </ErrorBoundary>
-              <ToastContainer />
-            </ToastProvider>
-          </ThemeProvider>
-        </Theme>
-      </TamaguiProvider>
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <TamaguiProvider config={config} defaultTheme={colorScheme || 'light'}>
+          <Theme name={colorScheme || 'light'}>
+            <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+              <ToastProvider>
+                <ErrorBoundary>
+                  <Stack screenOptions={{ headerShown: false }}>
+                    <Stack.Screen name="(tabs)" />
+                    <Stack.Screen name="(auth)" />
+                    <Stack.Screen 
+                      name="food/[id]" 
+                      options={{ presentation: 'card' }} 
+                    />
+                    <Stack.Screen 
+                      name="add-food" 
+                      options={{ presentation: 'modal' }} 
+                    />
+                  </Stack>
+                </ErrorBoundary>
+                <ToastContainer />
+              </ToastProvider>
+            </ThemeProvider>
+          </Theme>
+        </TamaguiProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
