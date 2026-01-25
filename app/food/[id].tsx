@@ -7,6 +7,7 @@ import {
     Card,
     H2,
     H3,
+    H4,
     Separator,
     Spinner,
     Text,
@@ -14,7 +15,13 @@ import {
     YStack,
 } from 'tamagui';
 
-import { MacroCircleGroup, MacroRow } from '../../src/components';
+import {
+  MacroCircleGroup,
+  MacroRow,
+  NutritionDisplay,
+  MicronutrientHighlights,
+  IngredientsDisplay,
+} from '../../src/components';
 import { getFoodById } from '../../src/services/api/food';
 import { useAuthStore } from '../../src/stores/auth.store';
 import { useDiaryStore } from '../../src/stores/diary.store';
@@ -181,6 +188,45 @@ export default function FoodDetailScreen() {
                 {food.brand}
               </Text>
             )}
+            {/* Food metadata */}
+            <XStack flexWrap="wrap" gap="$2" marginTop="$2">
+              {food.dataType && (
+                <YStack
+                  backgroundColor={food.dataType === 'Foundation' ? '#10B98120' : food.dataType === 'SR Legacy' ? '#3B82F620' : '#F59E0B20'}
+                  paddingHorizontal="$2"
+                  paddingVertical="$1"
+                  borderRadius="$2"
+                >
+                  <Text fontSize="$2" color={food.dataType === 'Foundation' ? '#10B981' : food.dataType === 'SR Legacy' ? '#3B82F6' : '#F59E0B'}>
+                    {food.dataType}
+                  </Text>
+                </YStack>
+              )}
+              {food.foodCategory && (
+                <YStack
+                  backgroundColor="$backgroundHover"
+                  paddingHorizontal="$2"
+                  paddingVertical="$1"
+                  borderRadius="$2"
+                >
+                  <Text fontSize="$2" color="$colorHover">
+                    {food.foodCategory}
+                  </Text>
+                </YStack>
+              )}
+            </XStack>
+            {/* Scientific name */}
+            {food.scientificName && (
+              <Text fontSize="$3" fontStyle="italic" color="$colorHover" marginTop="$2">
+                {food.scientificName}
+              </Text>
+            )}
+            {/* Barcode/UPC */}
+            {food.gtinUpc && (
+              <Text fontSize="$2" color="$colorHover" marginTop="$1">
+                UPC: {food.gtinUpc}
+              </Text>
+            )}
           </YStack>
           <Button
             size="$3"
@@ -268,24 +314,25 @@ export default function FoodDetailScreen() {
 
           <Separator marginVertical="$3" />
 
-          {/* Additional Nutrients */}
-          <YStack gap="$2">
-            {scaledNutrition.fiber !== undefined && (
-              <MacroRow label="Fiber" value={scaledNutrition.fiber} unit="g" />
-            )}
-            {scaledNutrition.sugar !== undefined && (
-              <MacroRow label="Sugar" value={scaledNutrition.sugar} unit="g" />
-            )}
-            {scaledNutrition.sodium !== undefined && (
-              <MacroRow label="Sodium" value={scaledNutrition.sodium} unit="mg" />
-            )}
-            {scaledNutrition.saturatedFat !== undefined && (
-              <MacroRow label="Saturated Fat" value={scaledNutrition.saturatedFat} unit="g" />
-            )}
-            {scaledNutrition.cholesterol !== undefined && (
-              <MacroRow label="Cholesterol" value={scaledNutrition.cholesterol} unit="mg" />
-            )}
-          </YStack>
+          {/* Micronutrient Highlights (if significant amounts present) */}
+          <MicronutrientHighlights nutrition={scaledNutrition} maxItems={4} />
+
+          <Separator marginVertical="$3" />
+
+          {/* Full Nutrition Display */}
+          <H4 marginBottom="$2" color="$color">All Nutrients</H4>
+          <NutritionDisplay
+            nutrition={scaledNutrition}
+            showDailyValues={true}
+            expandedCategories={['macros']}
+          />
+        </Card>
+      )}
+
+      {/* Ingredients (for branded foods) */}
+      {food.ingredients && (
+        <Card elevate bordered padding="$4" marginBottom="$4" backgroundColor="$background">
+          <IngredientsDisplay ingredients={food.ingredients} />
         </Card>
       )}
 

@@ -1,35 +1,48 @@
 import { Nutrition, DiaryEntry, NutritionGoals } from '../types';
 
 /**
+ * All optional nutrient fields that can be summed/scaled
+ */
+const OPTIONAL_NUTRIENT_FIELDS: (keyof Nutrition)[] = [
+  'fiber', 'sugar', 'addedSugars', 'alcohol', 'water',
+  'saturatedFat', 'monounsaturatedFat', 'polyunsaturatedFat', 'transFat', 'cholesterol', 'omega3', 'omega6',
+  'sodium', 'potassium', 'calcium', 'iron', 'magnesium', 'phosphorus', 'zinc', 'copper', 'manganese', 'selenium',
+  'vitaminA', 'vitaminD', 'vitaminE', 'vitaminK',
+  'vitaminC', 'thiamin', 'riboflavin', 'niacin', 'pantothenicAcid', 'vitaminB6', 'biotin', 'folate', 'folicAcid', 'folateDFE', 'vitaminB12', 'choline',
+  'betaCarotene', 'alphaCarotene', 'lycopene', 'luteinZeaxanthin', 'cryptoxanthin', 'retinol',
+  'caffeine', 'theobromine',
+];
+
+/**
  * Sum nutrition values from multiple diary entries
  */
 export function sumNutrition(entries: DiaryEntry[]): Nutrition {
-  return entries.reduce(
-    (totals, entry) => ({
+  const initial: Nutrition = {
+    calories: 0,
+    protein: 0,
+    carbs: 0,
+    fat: 0,
+  };
+
+  return entries.reduce((totals, entry) => {
+    const result: Nutrition = {
       calories: totals.calories + entry.nutrition.calories,
       protein: totals.protein + entry.nutrition.protein,
       carbs: totals.carbs + entry.nutrition.carbs,
       fat: totals.fat + entry.nutrition.fat,
-      fiber: (totals.fiber || 0) + (entry.nutrition.fiber || 0),
-      sugar: (totals.sugar || 0) + (entry.nutrition.sugar || 0),
-      sodium: (totals.sodium || 0) + (entry.nutrition.sodium || 0),
-      saturatedFat: (totals.saturatedFat || 0) + (entry.nutrition.saturatedFat || 0),
-      cholesterol: (totals.cholesterol || 0) + (entry.nutrition.cholesterol || 0),
-      potassium: (totals.potassium || 0) + (entry.nutrition.potassium || 0),
-    }),
-    {
-      calories: 0,
-      protein: 0,
-      carbs: 0,
-      fat: 0,
-      fiber: 0,
-      sugar: 0,
-      sodium: 0,
-      saturatedFat: 0,
-      cholesterol: 0,
-      potassium: 0,
+    };
+
+    // Sum all optional nutrient fields
+    for (const field of OPTIONAL_NUTRIENT_FIELDS) {
+      const totalValue = totals[field] as number | undefined;
+      const entryValue = entry.nutrition[field] as number | undefined;
+      if (totalValue !== undefined || entryValue !== undefined) {
+        (result as Record<string, number | undefined>)[field] = (totalValue || 0) + (entryValue || 0);
+      }
     }
-  );
+
+    return result;
+  }, initial);
 }
 
 /**
@@ -56,25 +69,38 @@ export function calculateProgress(current: number, goal: number): number {
 }
 
 /**
+ * Nutrients that should be rounded to whole numbers (typically mg/mcg values)
+ */
+const WHOLE_NUMBER_NUTRIENTS: (keyof Nutrition)[] = [
+  'calories', 'sodium', 'potassium', 'calcium', 'cholesterol',
+  'magnesium', 'phosphorus', 'caffeine', 'theobromine',
+  'betaCarotene', 'alphaCarotene', 'lycopene', 'luteinZeaxanthin', 'cryptoxanthin', 'retinol',
+];
+
+/**
  * Scale nutrition values by serving amount
  */
 export function scaleNutrition(nutrition: Nutrition, multiplier: number): Nutrition {
-  return {
+  const result: Nutrition = {
     calories: Math.round(nutrition.calories * multiplier),
     protein: Math.round(nutrition.protein * multiplier * 10) / 10,
     carbs: Math.round(nutrition.carbs * multiplier * 10) / 10,
     fat: Math.round(nutrition.fat * multiplier * 10) / 10,
-    fiber: nutrition.fiber ? Math.round(nutrition.fiber * multiplier * 10) / 10 : undefined,
-    sugar: nutrition.sugar ? Math.round(nutrition.sugar * multiplier * 10) / 10 : undefined,
-    sodium: nutrition.sodium ? Math.round(nutrition.sodium * multiplier) : undefined,
-    saturatedFat: nutrition.saturatedFat
-      ? Math.round(nutrition.saturatedFat * multiplier * 10) / 10
-      : undefined,
-    cholesterol: nutrition.cholesterol
-      ? Math.round(nutrition.cholesterol * multiplier)
-      : undefined,
-    potassium: nutrition.potassium ? Math.round(nutrition.potassium * multiplier) : undefined,
   };
+
+  // Scale all optional nutrient fields
+  for (const field of OPTIONAL_NUTRIENT_FIELDS) {
+    const value = nutrition[field] as number | undefined;
+    if (value !== undefined && value !== null) {
+      const scaled = value * multiplier;
+      // Use whole numbers for mg/mcg values, one decimal for grams
+      (result as Record<string, number | undefined>)[field] = WHOLE_NUMBER_NUTRIENTS.includes(field)
+        ? Math.round(scaled)
+        : Math.round(scaled * 10) / 10;
+    }
+  }
+
+  return result;
 }
 
 /**
@@ -93,11 +119,23 @@ export function formatNutritionValue(value: number, unit: string = 'g'): string 
   if (unit === 'kcal' || unit === 'cal') {
     return `${Math.round(value)}`;
   }
-  if (unit === 'mg') {
+  if (unit === 'mg' || unit === 'mcg') {
+    // For very small values (< 1), show more decimal places
+    if (value > 0 && value < 1) {
+      return `${Math.round(value * 100) / 100}${unit}`;
+    }
     return `${Math.round(value)}${unit}`;
   }
   // For grams, show one decimal place
   return `${Math.round(value * 10) / 10}${unit}`;
+}
+
+/**
+ * Calculate percentage of daily value
+ */
+export function calculateDailyValuePercent(value: number, dailyValue: number | undefined): number | undefined {
+  if (!dailyValue || dailyValue <= 0) return undefined;
+  return Math.round((value / dailyValue) * 100);
 }
 
 /**

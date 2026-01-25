@@ -1,6 +1,7 @@
 /**
  * USDA FoodData Central API Service
  * 
+ * Full utilization of all available nutrients, ingredients, and metadata.
  * Free API with no IP restrictions. Excellent coverage of generic foods.
  * API Docs: https://fdc.nal.usda.gov/api-guide.html
  */
@@ -34,6 +35,9 @@ interface USDASearchFood {
   foodNutrients: USDANutrient[];
   servingSize?: number;
   servingSizeUnit?: string;
+  gtinUpc?: string;
+  brandedFoodCategory?: string;
+  scientificName?: string;
 }
 
 interface USDANutrient {
@@ -56,6 +60,30 @@ interface USDAFoodDetail {
   servingSizeUnit?: string;
   foodPortions?: USDAFoodPortion[];
   householdServingFullText?: string;
+  // Extended fields
+  gtinUpc?: string;
+  brandedFoodCategory?: string;
+  scientificName?: string;
+  foodCategory?: {
+    id: number;
+    code: string;
+    description: string;
+  };
+  labelNutrients?: {
+    fat?: { value: number };
+    saturatedFat?: { value: number };
+    transFat?: { value: number };
+    cholesterol?: { value: number };
+    sodium?: { value: number };
+    carbohydrates?: { value: number };
+    fiber?: { value: number };
+    sugars?: { value: number };
+    protein?: { value: number };
+    calcium?: { value: number };
+    iron?: { value: number };
+    potassium?: { value: number };
+    calories?: { value: number };
+  };
 }
 
 interface USDADetailNutrient {
@@ -80,19 +108,81 @@ interface USDAFoodPortion {
   portionDescription?: string;
 }
 
-// Nutrient IDs for common nutrients
+/**
+ * Complete USDA Nutrient ID mapping
+ * https://fdc.nal.usda.gov/api-guide.html
+ */
 const NUTRIENT_IDS = {
-  calories: 1008,    // Energy (kcal)
-  protein: 1003,     // Protein
-  fat: 1004,         // Total lipid (fat)
-  carbs: 1005,       // Carbohydrate
-  fiber: 1079,       // Fiber, total dietary
-  sugar: 2000,       // Sugars, total
-  sodium: 1093,      // Sodium
-  saturatedFat: 1258, // Fatty acids, saturated
-  cholesterol: 1253,  // Cholesterol
-  potassium: 1092,   // Potassium
-};
+  // === Core Macronutrients ===
+  calories: 1008,           // Energy (kcal)
+  protein: 1003,            // Protein (g)
+  carbs: 1005,              // Carbohydrate, by difference (g)
+  fat: 1004,                // Total lipid (fat) (g)
+
+  // === Additional Macros ===
+  fiber: 1079,              // Fiber, total dietary (g)
+  sugar: 2000,              // Sugars, total including NLEA (g)
+  addedSugars: 1235,        // Sugars, added (g)
+  alcohol: 1018,            // Alcohol, ethyl (g)
+  water: 1051,              // Water (g)
+
+  // === Fats & Fatty Acids ===
+  saturatedFat: 1258,       // Fatty acids, total saturated (g)
+  monounsaturatedFat: 1292, // Fatty acids, total monounsaturated (g)
+  polyunsaturatedFat: 1293, // Fatty acids, total polyunsaturated (g)
+  transFat: 1257,           // Fatty acids, total trans (g)
+  cholesterol: 1253,        // Cholesterol (mg)
+  
+  // Omega fatty acids (for calculating omega-3)
+  epa: 1278,                // 20:5 n-3 (EPA) (g)
+  dha: 1272,                // 22:6 n-3 (DHA) (g)
+  ala: 1404,                // 18:3 n-3 c,c,c (ALA) (g)
+  omega6: 1316,             // 18:2 n-6 c,c (linoleic) (g)
+
+  // === Minerals ===
+  sodium: 1093,             // Sodium, Na (mg)
+  potassium: 1092,          // Potassium, K (mg)
+  calcium: 1087,            // Calcium, Ca (mg)
+  iron: 1089,               // Iron, Fe (mg)
+  magnesium: 1090,          // Magnesium, Mg (mg)
+  phosphorus: 1091,         // Phosphorus, P (mg)
+  zinc: 1095,               // Zinc, Zn (mg)
+  copper: 1098,             // Copper, Cu (mg)
+  manganese: 1101,          // Manganese, Mn (mg)
+  selenium: 1103,           // Selenium, Se (mcg)
+
+  // === Fat-Soluble Vitamins ===
+  vitaminA: 1106,           // Vitamin A, RAE (mcg)
+  vitaminD: 1114,           // Vitamin D (D2 + D3) (mcg)
+  vitaminE: 1109,           // Vitamin E (alpha-tocopherol) (mg)
+  vitaminK: 1185,           // Vitamin K (phylloquinone) (mcg)
+
+  // === Water-Soluble Vitamins ===
+  vitaminC: 1162,           // Vitamin C, total ascorbic acid (mg)
+  thiamin: 1165,            // Thiamin (mg)
+  riboflavin: 1166,         // Riboflavin (mg)
+  niacin: 1167,             // Niacin (mg)
+  pantothenicAcid: 1170,    // Pantothenic acid (mg)
+  vitaminB6: 1175,          // Vitamin B-6 (mg)
+  biotin: 1176,             // Biotin (mcg)
+  folate: 1177,             // Folate, total (mcg)
+  folicAcid: 1186,          // Folic acid (mcg)
+  folateDFE: 1190,          // Folate, DFE (mcg)
+  vitaminB12: 1178,         // Vitamin B-12 (mcg)
+  choline: 1180,            // Choline, total (mg)
+
+  // === Carotenoids ===
+  betaCarotene: 1107,       // Carotene, beta (mcg)
+  alphaCarotene: 1108,      // Carotene, alpha (mcg)
+  lycopene: 1122,           // Lycopene (mcg)
+  luteinZeaxanthin: 1123,   // Lutein + zeaxanthin (mcg)
+  cryptoxanthin: 1120,      // Cryptoxanthin, beta (mcg)
+  retinol: 1105,            // Retinol (mcg)
+
+  // === Other Compounds ===
+  caffeine: 1057,           // Caffeine (mg)
+  theobromine: 1058,        // Theobromine (mg)
+} as const;
 
 /**
  * Search for foods using USDA FoodData Central
@@ -195,7 +285,39 @@ function formatNutritionDescription(food: USDASearchFood): string {
 }
 
 /**
- * Normalize USDA food data to internal format
+ * Scale nutrition values by a ratio
+ */
+function scaleNutritionByRatio(nutrition: Nutrition, ratio: number): Nutrition {
+  const scaled: Nutrition = {
+    calories: nutrition.calories * ratio,
+    protein: nutrition.protein * ratio,
+    carbs: nutrition.carbs * ratio,
+    fat: nutrition.fat * ratio,
+  };
+
+  // Scale all optional fields
+  const optionalFields: (keyof Nutrition)[] = [
+    'fiber', 'sugar', 'addedSugars', 'alcohol', 'water',
+    'saturatedFat', 'monounsaturatedFat', 'polyunsaturatedFat', 'transFat', 'cholesterol', 'omega3', 'omega6',
+    'sodium', 'potassium', 'calcium', 'iron', 'magnesium', 'phosphorus', 'zinc', 'copper', 'manganese', 'selenium',
+    'vitaminA', 'vitaminD', 'vitaminE', 'vitaminK',
+    'vitaminC', 'thiamin', 'riboflavin', 'niacin', 'pantothenicAcid', 'vitaminB6', 'biotin', 'folate', 'folicAcid', 'folateDFE', 'vitaminB12', 'choline',
+    'betaCarotene', 'alphaCarotene', 'lycopene', 'luteinZeaxanthin', 'cryptoxanthin', 'retinol',
+    'caffeine', 'theobromine',
+  ];
+
+  for (const field of optionalFields) {
+    const value = nutrition[field];
+    if (value !== undefined && value !== null) {
+      (scaled as Record<string, number | undefined>)[field] = (value as number) * ratio;
+    }
+  }
+
+  return scaled;
+}
+
+/**
+ * Normalize USDA food data to internal format with full nutrient extraction
  */
 function normalizeUSDAFood(food: USDAFoodDetail): NormalizedFood {
   const servings: NormalizedServing[] = [];
@@ -219,19 +341,7 @@ function normalizeUSDAFood(food: USDAFoodDetail): NormalizedFood {
       const gramWeight = portion.gramWeight;
       const ratio = gramWeight / 100;
       
-      // Scale nutrition by portion weight
-      const portionNutrition: Nutrition = {
-        calories: nutritionPer100g.calories * ratio,
-        protein: nutritionPer100g.protein * ratio,
-        carbs: nutritionPer100g.carbs * ratio,
-        fat: nutritionPer100g.fat * ratio,
-        fiber: (nutritionPer100g.fiber || 0) * ratio,
-        sugar: (nutritionPer100g.sugar || 0) * ratio,
-        sodium: (nutritionPer100g.sodium || 0) * ratio,
-        saturatedFat: (nutritionPer100g.saturatedFat || 0) * ratio,
-        cholesterol: (nutritionPer100g.cholesterol || 0) * ratio,
-        potassium: (nutritionPer100g.potassium || 0) * ratio,
-      };
+      const portionNutrition = scaleNutritionByRatio(nutritionPer100g, ratio);
 
       const description = portion.portionDescription || 
         `${portion.amount} ${portion.measureUnit?.name || 'serving'}` +
@@ -251,18 +361,7 @@ function normalizeUSDAFood(food: USDAFoodDetail): NormalizedFood {
   // Add serving size if available and different from portions
   if (food.servingSize && food.servingSizeUnit) {
     const ratio = food.servingSize / 100;
-    const servingNutrition: Nutrition = {
-      calories: nutritionPer100g.calories * ratio,
-      protein: nutritionPer100g.protein * ratio,
-      carbs: nutritionPer100g.carbs * ratio,
-      fat: nutritionPer100g.fat * ratio,
-      fiber: (nutritionPer100g.fiber || 0) * ratio,
-      sugar: (nutritionPer100g.sugar || 0) * ratio,
-      sodium: (nutritionPer100g.sodium || 0) * ratio,
-      saturatedFat: (nutritionPer100g.saturatedFat || 0) * ratio,
-      cholesterol: (nutritionPer100g.cholesterol || 0) * ratio,
-      potassium: (nutritionPer100g.potassium || 0) * ratio,
-    };
+    const servingNutrition = scaleNutritionByRatio(nutritionPer100g, ratio);
 
     servings.push({
       id: 'serving',
@@ -274,34 +373,111 @@ function normalizeUSDAFood(food: USDAFoodDetail): NormalizedFood {
     });
   }
 
+  // Determine food category
+  const foodCategory = food.brandedFoodCategory || food.foodCategory?.description;
+
+  // Determine data type for display
+  const dataType = food.dataType as NormalizedFood['dataType'];
+
   return {
     id: String(food.fdcId),
     name: food.description,
     brand: food.brandOwner || food.brandName,
     source: 'usda' as const,
     servings,
+    // Extended fields
+    ingredients: food.ingredients,
+    foodCategory,
+    scientificName: food.scientificName,
+    gtinUpc: food.gtinUpc,
+    dataType,
   };
 }
 
 /**
- * Extract nutrition from USDA nutrient array
+ * Extract all available nutrition from USDA nutrient array
  */
 function extractNutrition(nutrients: USDADetailNutrient[]): Nutrition {
-  const getValue = (nutrientId: number): number => {
+  const getValue = (nutrientId: number): number | undefined => {
     const nutrient = nutrients.find(n => n.nutrient?.id === nutrientId);
-    return nutrient?.amount ?? 0;
+    return nutrient?.amount;
   };
 
+  const getValueOrZero = (nutrientId: number): number => {
+    return getValue(nutrientId) ?? 0;
+  };
+
+  // Calculate omega-3 as sum of EPA, DHA, and ALA
+  const epa = getValue(NUTRIENT_IDS.epa) ?? 0;
+  const dha = getValue(NUTRIENT_IDS.dha) ?? 0;
+  const ala = getValue(NUTRIENT_IDS.ala) ?? 0;
+  const omega3Total = epa + dha + ala;
+
   return {
-    calories: getValue(NUTRIENT_IDS.calories),
-    protein: getValue(NUTRIENT_IDS.protein),
-    carbs: getValue(NUTRIENT_IDS.carbs),
-    fat: getValue(NUTRIENT_IDS.fat),
+    // === Core Macronutrients ===
+    calories: getValueOrZero(NUTRIENT_IDS.calories),
+    protein: getValueOrZero(NUTRIENT_IDS.protein),
+    carbs: getValueOrZero(NUTRIENT_IDS.carbs),
+    fat: getValueOrZero(NUTRIENT_IDS.fat),
+
+    // === Additional Macros ===
     fiber: getValue(NUTRIENT_IDS.fiber),
     sugar: getValue(NUTRIENT_IDS.sugar),
-    sodium: getValue(NUTRIENT_IDS.sodium),
+    addedSugars: getValue(NUTRIENT_IDS.addedSugars),
+    alcohol: getValue(NUTRIENT_IDS.alcohol),
+    water: getValue(NUTRIENT_IDS.water),
+
+    // === Fats & Fatty Acids ===
     saturatedFat: getValue(NUTRIENT_IDS.saturatedFat),
+    monounsaturatedFat: getValue(NUTRIENT_IDS.monounsaturatedFat),
+    polyunsaturatedFat: getValue(NUTRIENT_IDS.polyunsaturatedFat),
+    transFat: getValue(NUTRIENT_IDS.transFat),
     cholesterol: getValue(NUTRIENT_IDS.cholesterol),
+    omega3: omega3Total > 0 ? omega3Total : undefined,
+    omega6: getValue(NUTRIENT_IDS.omega6),
+
+    // === Minerals ===
+    sodium: getValue(NUTRIENT_IDS.sodium),
     potassium: getValue(NUTRIENT_IDS.potassium),
+    calcium: getValue(NUTRIENT_IDS.calcium),
+    iron: getValue(NUTRIENT_IDS.iron),
+    magnesium: getValue(NUTRIENT_IDS.magnesium),
+    phosphorus: getValue(NUTRIENT_IDS.phosphorus),
+    zinc: getValue(NUTRIENT_IDS.zinc),
+    copper: getValue(NUTRIENT_IDS.copper),
+    manganese: getValue(NUTRIENT_IDS.manganese),
+    selenium: getValue(NUTRIENT_IDS.selenium),
+
+    // === Fat-Soluble Vitamins ===
+    vitaminA: getValue(NUTRIENT_IDS.vitaminA),
+    vitaminD: getValue(NUTRIENT_IDS.vitaminD),
+    vitaminE: getValue(NUTRIENT_IDS.vitaminE),
+    vitaminK: getValue(NUTRIENT_IDS.vitaminK),
+
+    // === Water-Soluble Vitamins ===
+    vitaminC: getValue(NUTRIENT_IDS.vitaminC),
+    thiamin: getValue(NUTRIENT_IDS.thiamin),
+    riboflavin: getValue(NUTRIENT_IDS.riboflavin),
+    niacin: getValue(NUTRIENT_IDS.niacin),
+    pantothenicAcid: getValue(NUTRIENT_IDS.pantothenicAcid),
+    vitaminB6: getValue(NUTRIENT_IDS.vitaminB6),
+    biotin: getValue(NUTRIENT_IDS.biotin),
+    folate: getValue(NUTRIENT_IDS.folate),
+    folicAcid: getValue(NUTRIENT_IDS.folicAcid),
+    folateDFE: getValue(NUTRIENT_IDS.folateDFE),
+    vitaminB12: getValue(NUTRIENT_IDS.vitaminB12),
+    choline: getValue(NUTRIENT_IDS.choline),
+
+    // === Carotenoids ===
+    betaCarotene: getValue(NUTRIENT_IDS.betaCarotene),
+    alphaCarotene: getValue(NUTRIENT_IDS.alphaCarotene),
+    lycopene: getValue(NUTRIENT_IDS.lycopene),
+    luteinZeaxanthin: getValue(NUTRIENT_IDS.luteinZeaxanthin),
+    cryptoxanthin: getValue(NUTRIENT_IDS.cryptoxanthin),
+    retinol: getValue(NUTRIENT_IDS.retinol),
+
+    // === Other Compounds ===
+    caffeine: getValue(NUTRIENT_IDS.caffeine),
+    theobromine: getValue(NUTRIENT_IDS.theobromine),
   };
 }
