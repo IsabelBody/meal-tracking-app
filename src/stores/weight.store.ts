@@ -26,7 +26,7 @@ export const useWeightStore = create<WeightState>()(
       // Initial state
       entries: {},
       selectedDate: getTodayKey(),
-      preferredUnit: 'lbs',
+      preferredUnit: 'kg',
 
       // Actions
       setSelectedDate: (date) => {

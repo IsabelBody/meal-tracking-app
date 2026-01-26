@@ -4,12 +4,25 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useMemo } from 'react';
 import { NutritionGoals, DEFAULT_GOALS } from '../types';
 import { getGoals, updateGoals as updateGoalsApi } from '../services/api/diary';
+import {
+  Gender,
+  ActivityLevel,
+  WeightGoal,
+  BodyStats,
+} from '../utils/nutrition';
 
 interface UserProfile {
   name?: string;
   email?: string;
   unitSystem: 'metric' | 'imperial';
   createdAt?: string;
+  // Body stats for TDEE calculation
+  gender?: Gender;
+  weight?: number; // stored in kg
+  height?: number; // stored in cm
+  age?: number;
+  activityLevel?: ActivityLevel;
+  weightGoal?: WeightGoal;
 }
 
 interface GoalsState {

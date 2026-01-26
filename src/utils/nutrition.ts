@@ -161,3 +161,123 @@ export function getMacroPercentages(nutrition: Nutrition): {
     fat: Math.round((fatCals / totalCals) * 100),
   };
 }
+
+// ============================================================================
+// TDEE & Goal Calculator
+// ============================================================================
+
+export type Gender = 'male' | 'female';
+export type ActivityLevel = 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active';
+export type WeightGoal = 'lose_2' | 'lose_1.5' | 'lose_1' | 'lose_0.5' | 'maintain' | 'gain_0.5' | 'gain_1';
+
+export interface BodyStats {
+  gender: Gender;
+  weight: number; // in kg
+  height: number; // in cm
+  age: number;
+  activityLevel: ActivityLevel;
+}
+
+export const ACTIVITY_MULTIPLIERS: Record<ActivityLevel, { factor: number; label: string; description: string }> = {
+  sedentary: { factor: 1.2, label: 'Sedentary', description: 'Little or no exercise' },
+  light: { factor: 1.375, label: 'Light', description: 'Exercise 1-3 times/week' },
+  moderate: { factor: 1.55, label: 'Moderate', description: 'Exercise 3-5 times/week' },
+  active: { factor: 1.725, label: 'Active', description: 'Exercise 6-7 times/week' },
+  very_active: { factor: 1.9, label: 'Very Active', description: 'Intense exercise daily' },
+};
+
+export const WEIGHT_GOAL_ADJUSTMENTS: Record<WeightGoal, { adjustment: number; label: string; rate: string }> = {
+  lose_2: { adjustment: -1000, label: 'Lose weight', rate: '0.9 kg/week' },
+  'lose_1.5': { adjustment: -750, label: 'Lose weight', rate: '0.7 kg/week' },
+  lose_1: { adjustment: -500, label: 'Lose weight', rate: '0.45 kg/week' },
+  'lose_0.5': { adjustment: -250, label: 'Lose weight', rate: '0.2 kg/week' },
+  maintain: { adjustment: 0, label: 'Maintain', rate: 'Stay the same' },
+  'gain_0.5': { adjustment: 250, label: 'Gain weight', rate: '0.2 kg/week' },
+  gain_1: { adjustment: 500, label: 'Gain weight', rate: '0.45 kg/week' },
+};
+
+/**
+ * Calculate BMR using Mifflin-St Jeor equation (most accurate)
+ * Men: BMR = 10 × weight(kg) + 6.25 × height(cm) - 5 × age + 5
+ * Women: BMR = 10 × weight(kg) + 6.25 × height(cm) - 5 × age - 161
+ */
+export function calculateBMR(stats: BodyStats): number {
+  const base = 10 * stats.weight + 6.25 * stats.height - 5 * stats.age;
+  return stats.gender === 'male' ? base + 5 : base - 161;
+}
+
+/**
+ * Calculate TDEE (Total Daily Energy Expenditure)
+ */
+export function calculateTDEE(stats: BodyStats): number {
+  const bmr = calculateBMR(stats);
+  const multiplier = ACTIVITY_MULTIPLIERS[stats.activityLevel].factor;
+  return Math.round(bmr * multiplier);
+}
+
+/**
+ * Calculate recommended daily calories based on TDEE and weight goal
+ */
+export function calculateTargetCalories(stats: BodyStats, goal: WeightGoal): number {
+  const tdee = calculateTDEE(stats);
+  const adjustment = WEIGHT_GOAL_ADJUSTMENTS[goal].adjustment;
+  // Ensure minimum safe calorie intake
+  const minCalories = stats.gender === 'male' ? 1500 : 1200;
+  return Math.max(minCalories, tdee + adjustment);
+}
+
+/**
+ * Calculate recommended macros based on calorie target
+ * Uses balanced distribution: 30% protein, 40% carbs, 30% fat
+ */
+export function calculateRecommendedMacros(
+  calories: number,
+  preset: 'balanced' | 'low_carb' | 'high_protein' | 'keto' = 'balanced'
+): { protein: number; carbs: number; fat: number } {
+  const distributions = {
+    balanced: { protein: 0.25, carbs: 0.45, fat: 0.30 },
+    low_carb: { protein: 0.35, carbs: 0.25, fat: 0.40 },
+    high_protein: { protein: 0.40, carbs: 0.30, fat: 0.30 },
+    keto: { protein: 0.25, carbs: 0.05, fat: 0.70 },
+  };
+
+  const dist = distributions[preset];
+  
+  return {
+    protein: Math.round((calories * dist.protein) / 4), // 4 cal per gram
+    carbs: Math.round((calories * dist.carbs) / 4),     // 4 cal per gram
+    fat: Math.round((calories * dist.fat) / 9),         // 9 cal per gram
+  };
+}
+
+/**
+ * Convert inches to cm
+ */
+export function inchesToCm(inches: number): number {
+  return Math.round(inches * 2.54 * 10) / 10;
+}
+
+/**
+ * Convert cm to inches
+ */
+export function cmToInches(cm: number): number {
+  return Math.round(cm / 2.54 * 10) / 10;
+}
+
+/**
+ * Convert feet and inches to cm
+ */
+export function feetInchesToCm(feet: number, inches: number): number {
+  const totalInches = feet * 12 + inches;
+  return inchesToCm(totalInches);
+}
+
+/**
+ * Convert cm to feet and inches
+ */
+export function cmToFeetInches(cm: number): { feet: number; inches: number } {
+  const totalInches = cmToInches(cm);
+  const feet = Math.floor(totalInches / 12);
+  const inches = Math.round(totalInches % 12);
+  return { feet, inches };
+}

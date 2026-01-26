@@ -1,6 +1,8 @@
-import { AlertCircle, Cloud, CloudOff, Plus, RefreshCw, Trash2 } from '@tamagui/lucide-icons';
+import { AlertCircle, Camera, ChevronLeft, ChevronRight, Cloud, CloudOff, List, Plus, RefreshCw, Search, Trash2, UtensilsCrossed, X } from '@tamagui/lucide-icons';
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Modal, Pressable, TouchableWithoutFeedback, useColorScheme, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
     Button,
     Card,
@@ -32,6 +34,14 @@ export default function DashboardScreen() {
   const goalsError = useGoalsStore((state) => state.error);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   
+  // Add food modal state
+  const [modalVisible, setModalVisible] = useState(false);
+  const [showCustomMealMenu, setShowCustomMealMenu] = useState(false);
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
+  const insets = useSafeAreaInsets();
+  const activeColor = '#10B981';
+  
   // Initialize sync
   const { isSyncing, syncCurrentDate, fullSync } = useSync();
   
@@ -52,12 +62,34 @@ export default function DashboardScreen() {
   const totals = useMemo(() => sumNutrition(entries), [entries]);
   const progress = useNutritionProgress(totals);
 
+  const handleCloseModal = useCallback(() => {
+    setModalVisible(false);
+    setShowCustomMealMenu(false);
+  }, []);
+
+  const handleOptionPress = useCallback((option: 'scan' | 'search' | 'selectMeal' | 'createMeal') => {
+    handleCloseModal();
+    setTimeout(() => {
+      switch (option) {
+        case 'scan':
+          router.push('/(tabs)/scanner');
+          break;
+        case 'search':
+          router.push('/(tabs)/search');
+          break;
+        case 'selectMeal':
+          router.push('/meal/select');
+          break;
+        case 'createMeal':
+          router.push('/meal/create');
+          break;
+      }
+    }, 100);
+  }, [handleCloseModal, router]);
+
   const handleAddFood = useCallback(() => {
-    router.push({
-      pathname: '/add-food',
-      params: { date: selectedDate },
-    });
-  }, [router, selectedDate]);
+    setModalVisible(true);
+  }, []);
 
   // Pull to refresh
   const handleRefresh = useCallback(async () => {
@@ -243,6 +275,201 @@ export default function DashboardScreen() {
       >
         Add Food
       </Button>
+
+      {/* Add Food Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={handleCloseModal}
+      >
+        <TouchableWithoutFeedback onPress={handleCloseModal}>
+          <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' }}>
+            <TouchableWithoutFeedback>
+              <View
+                style={{
+                  backgroundColor: isDark ? '#1F2937' : '#FFFFFF',
+                  borderTopLeftRadius: 20,
+                  borderTopRightRadius: 20,
+                  paddingBottom: insets.bottom + 16,
+                  paddingTop: 8,
+                }}
+              >
+                {/* Handle bar */}
+                <View style={{ alignItems: 'center', paddingVertical: 8 }}>
+                  <View
+                    style={{
+                      width: 40,
+                      height: 4,
+                      backgroundColor: isDark ? '#4B5563' : '#D1D5DB',
+                      borderRadius: 2,
+                    }}
+                  />
+                </View>
+
+                {showCustomMealMenu ? (
+                  /* Custom Meal Sub-menu */
+                  <>
+                    <XStack paddingHorizontal="$4" paddingVertical="$3" justifyContent="space-between" alignItems="center">
+                      <Pressable onPress={() => setShowCustomMealMenu(false)}>
+                        <ChevronLeft size={24} color={isDark ? '#9CA3AF' : '#6B7280'} />
+                      </Pressable>
+                      <Text fontSize={18} fontWeight="600" color={isDark ? '#F9FAFB' : '#111827'}>
+                        Custom Meal
+                      </Text>
+                      <Pressable onPress={handleCloseModal}>
+                        <X size={24} color={isDark ? '#9CA3AF' : '#6B7280'} />
+                      </Pressable>
+                    </XStack>
+
+                    <Separator backgroundColor={isDark ? '#374151' : '#E5E7EB'} />
+
+                    <YStack paddingHorizontal="$4" paddingTop="$2">
+                      <Pressable onPress={() => handleOptionPress('selectMeal')}>
+                        <XStack paddingVertical="$4" alignItems="center" gap="$3">
+                          <YStack
+                            width={44}
+                            height={44}
+                            borderRadius={22}
+                            backgroundColor={isDark ? '#374151' : '#F3F4F6'}
+                            alignItems="center"
+                            justifyContent="center"
+                          >
+                            <List size={22} color={activeColor} />
+                          </YStack>
+                          <YStack flex={1}>
+                            <Text color={isDark ? '#F9FAFB' : '#111827'} fontWeight="600" fontSize={16}>
+                              Select Existing Meal
+                            </Text>
+                            <Text color={isDark ? '#9CA3AF' : '#6B7280'} fontSize={13}>
+                              Choose from your saved meals
+                            </Text>
+                          </YStack>
+                        </XStack>
+                      </Pressable>
+
+                      <Separator backgroundColor={isDark ? '#374151' : '#E5E7EB'} />
+
+                      <Pressable onPress={() => handleOptionPress('createMeal')}>
+                        <XStack paddingVertical="$4" alignItems="center" gap="$3">
+                          <YStack
+                            width={44}
+                            height={44}
+                            borderRadius={22}
+                            backgroundColor={isDark ? '#374151' : '#F3F4F6'}
+                            alignItems="center"
+                            justifyContent="center"
+                          >
+                            <Plus size={22} color={activeColor} />
+                          </YStack>
+                          <YStack flex={1}>
+                            <Text color={isDark ? '#F9FAFB' : '#111827'} fontWeight="600" fontSize={16}>
+                              Create New Meal
+                            </Text>
+                            <Text color={isDark ? '#9CA3AF' : '#6B7280'} fontSize={13}>
+                              Build a custom meal from scratch
+                            </Text>
+                          </YStack>
+                        </XStack>
+                      </Pressable>
+                    </YStack>
+                  </>
+                ) : (
+                  /* Main Menu */
+                  <>
+                    <XStack paddingHorizontal="$4" paddingVertical="$3" justifyContent="space-between" alignItems="center">
+                      <Text fontSize={18} fontWeight="600" color={isDark ? '#F9FAFB' : '#111827'}>
+                        Add Food
+                      </Text>
+                      <Pressable onPress={handleCloseModal}>
+                        <X size={24} color={isDark ? '#9CA3AF' : '#6B7280'} />
+                      </Pressable>
+                    </XStack>
+
+                    <Separator backgroundColor={isDark ? '#374151' : '#E5E7EB'} />
+
+                    <YStack paddingHorizontal="$4" paddingTop="$2">
+                      <Pressable onPress={() => handleOptionPress('scan')}>
+                        <XStack paddingVertical="$4" alignItems="center" gap="$3">
+                          <YStack
+                            width={44}
+                            height={44}
+                            borderRadius={22}
+                            backgroundColor={isDark ? '#374151' : '#F3F4F6'}
+                            alignItems="center"
+                            justifyContent="center"
+                          >
+                            <Camera size={22} color={activeColor} />
+                          </YStack>
+                          <YStack flex={1}>
+                            <Text color={isDark ? '#F9FAFB' : '#111827'} fontWeight="600" fontSize={16}>
+                              Scan Barcode
+                            </Text>
+                            <Text color={isDark ? '#9CA3AF' : '#6B7280'} fontSize={13}>
+                              Scan a product barcode
+                            </Text>
+                          </YStack>
+                        </XStack>
+                      </Pressable>
+
+                      <Separator backgroundColor={isDark ? '#374151' : '#E5E7EB'} />
+
+                      <Pressable onPress={() => handleOptionPress('search')}>
+                        <XStack paddingVertical="$4" alignItems="center" gap="$3">
+                          <YStack
+                            width={44}
+                            height={44}
+                            borderRadius={22}
+                            backgroundColor={isDark ? '#374151' : '#F3F4F6'}
+                            alignItems="center"
+                            justifyContent="center"
+                          >
+                            <Search size={22} color={activeColor} />
+                          </YStack>
+                          <YStack flex={1}>
+                            <Text color={isDark ? '#F9FAFB' : '#111827'} fontWeight="600" fontSize={16}>
+                              Search Food
+                            </Text>
+                            <Text color={isDark ? '#9CA3AF' : '#6B7280'} fontSize={13}>
+                              Search our food database
+                            </Text>
+                          </YStack>
+                        </XStack>
+                      </Pressable>
+
+                      <Separator backgroundColor={isDark ? '#374151' : '#E5E7EB'} />
+
+                      <Pressable onPress={() => setShowCustomMealMenu(true)}>
+                        <XStack paddingVertical="$4" alignItems="center" gap="$3">
+                          <YStack
+                            width={44}
+                            height={44}
+                            borderRadius={22}
+                            backgroundColor={isDark ? '#374151' : '#F3F4F6'}
+                            alignItems="center"
+                            justifyContent="center"
+                          >
+                            <UtensilsCrossed size={22} color={activeColor} />
+                          </YStack>
+                          <YStack flex={1}>
+                            <Text color={isDark ? '#F9FAFB' : '#111827'} fontWeight="600" fontSize={16}>
+                              Custom Meal
+                            </Text>
+                            <Text color={isDark ? '#9CA3AF' : '#6B7280'} fontSize={13}>
+                              Select or create a meal
+                            </Text>
+                          </YStack>
+                          <ChevronRight size={20} color={isDark ? '#9CA3AF' : '#6B7280'} />
+                        </XStack>
+                      </Pressable>
+                    </YStack>
+                  </>
+                )}
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
     </SwipeableDateHeader>
   );
 }

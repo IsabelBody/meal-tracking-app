@@ -5,7 +5,6 @@ import { Button, Card, Input, Separator, Text, TextArea, XStack, YStack } from '
 
 import { SwipeableDateHeader } from '../../src/components';
 import { useSelectedDateWeight, useWeightStore } from '../../src/stores/weight.store';
-import { WeightUnit, convertWeight } from '../../src/types/weight';
 import { isToday } from '../../src/utils/date';
 
 export default function WeightScreen() {
@@ -14,8 +13,6 @@ export default function WeightScreen() {
 
   const selectedDate = useWeightStore((state) => state.selectedDate);
   const setSelectedDate = useWeightStore((state) => state.setSelectedDate);
-  const preferredUnit = useWeightStore((state) => state.preferredUnit);
-  const setPreferredUnit = useWeightStore((state) => state.setPreferredUnit);
   const logWeight = useWeightStore((state) => state.logWeight);
   const deleteWeight = useWeightStore((state) => state.deleteWeight);
 
@@ -24,52 +21,28 @@ export default function WeightScreen() {
   // Local form state
   const [weightInput, setWeightInput] = useState('');
   const [notesInput, setNotesInput] = useState('');
-  const [displayUnit, setDisplayUnit] = useState<WeightUnit>(preferredUnit);
 
   // Sync form with existing entry when date changes or entry loads
   useEffect(() => {
     if (existingEntry) {
-      // Convert to display unit if needed
-      const displayWeight = existingEntry.unit === displayUnit
-        ? existingEntry.weight
-        : convertWeight(existingEntry.weight, existingEntry.unit, displayUnit);
-      setWeightInput(displayWeight.toString());
+      setWeightInput(existingEntry.weight.toString());
       setNotesInput(existingEntry.notes || '');
     } else {
       setWeightInput('');
       setNotesInput('');
     }
-  }, [existingEntry, selectedDate, displayUnit]);
-
-  // Sync display unit with preferred unit
-  useEffect(() => {
-    setDisplayUnit(preferredUnit);
-  }, [preferredUnit]);
+  }, [existingEntry, selectedDate]);
 
   const viewingToday = isToday(selectedDate);
   const hasEntry = !!existingEntry;
-
-  const handleUnitToggle = useCallback((unit: WeightUnit) => {
-    if (unit === displayUnit) return;
-    
-    // Convert current input value to new unit
-    const currentValue = parseFloat(weightInput);
-    if (!isNaN(currentValue) && currentValue > 0) {
-      const convertedValue = convertWeight(currentValue, displayUnit, unit);
-      setWeightInput(convertedValue.toString());
-    }
-    
-    setDisplayUnit(unit);
-    setPreferredUnit(unit);
-  }, [displayUnit, weightInput, setPreferredUnit]);
 
   const handleSave = useCallback(() => {
     const weight = parseFloat(weightInput);
     if (isNaN(weight) || weight <= 0) return;
 
-    logWeight(weight, displayUnit, notesInput.trim() || undefined);
+    logWeight(weight, 'kg', notesInput.trim() || undefined);
     Keyboard.dismiss();
-  }, [weightInput, displayUnit, notesInput, logWeight]);
+  }, [weightInput, notesInput, logWeight]);
 
   const handleDelete = useCallback(() => {
     deleteWeight(selectedDate);
@@ -100,60 +73,21 @@ export default function WeightScreen() {
               {hasEntry ? 'Update Weight' : 'Log Weight'}
             </Text>
 
-            {/* Weight Input with Unit Toggle */}
+            {/* Weight Input */}
             <YStack gap="$2">
               <Text fontSize="$3" color="$colorHover">
-                Weight
+                Weight (kg)
               </Text>
-              <XStack gap="$3" alignItems="center">
-                <Input
-                  flex={1}
-                  size="$4"
-                  keyboardType="decimal-pad"
-                  placeholder={`Enter weight in ${displayUnit}`}
-                  value={weightInput}
-                  onChangeText={setWeightInput}
-                  backgroundColor={isDark ? '#1F2937' : '#F9FAFB'}
-                  borderColor={isDark ? '#374151' : '#E5E7EB'}
-                  color="$color"
-                />
-                
-                {/* Unit Toggle */}
-                <XStack
-                  backgroundColor={isDark ? '#1F2937' : '#F3F4F6'}
-                  borderRadius="$3"
-                  padding="$1"
-                >
-                  <Button
-                    size="$3"
-                    backgroundColor={displayUnit === 'lbs' ? '#10B981' : 'transparent'}
-                    pressStyle={{ backgroundColor: displayUnit === 'lbs' ? '#10B981' : '$backgroundHover' }}
-                    onPress={() => handleUnitToggle('lbs')}
-                    borderRadius="$2"
-                  >
-                    <Text
-                      color={displayUnit === 'lbs' ? 'white' : '$colorHover'}
-                      fontWeight={displayUnit === 'lbs' ? '600' : '400'}
-                    >
-                      lbs
-                    </Text>
-                  </Button>
-                  <Button
-                    size="$3"
-                    backgroundColor={displayUnit === 'kg' ? '#10B981' : 'transparent'}
-                    pressStyle={{ backgroundColor: displayUnit === 'kg' ? '#10B981' : '$backgroundHover' }}
-                    onPress={() => handleUnitToggle('kg')}
-                    borderRadius="$2"
-                  >
-                    <Text
-                      color={displayUnit === 'kg' ? 'white' : '$colorHover'}
-                      fontWeight={displayUnit === 'kg' ? '600' : '400'}
-                    >
-                      kg
-                    </Text>
-                  </Button>
-                </XStack>
-              </XStack>
+              <Input
+                size="$4"
+                keyboardType="decimal-pad"
+                placeholder="Enter weight in kg"
+                value={weightInput}
+                onChangeText={setWeightInput}
+                backgroundColor={isDark ? '#1F2937' : '#F9FAFB'}
+                borderColor={isDark ? '#374151' : '#E5E7EB'}
+                color="$color"
+              />
             </YStack>
 
             {/* Notes Input */}
@@ -242,12 +176,10 @@ export default function WeightScreen() {
             alignItems="center"
           >
             <Text fontSize="$10" fontWeight="700" color="$color">
-              {existingEntry.unit === displayUnit
-                ? existingEntry.weight
-                : convertWeight(existingEntry.weight, existingEntry.unit, displayUnit)}
+              {existingEntry.weight}
             </Text>
             <Text fontSize="$5" color="$colorHover" marginTop="$1">
-              {displayUnit}
+              kg
             </Text>
             {existingEntry.notes && (
               <>
