@@ -1,4 +1,4 @@
-import { Minus, Plus, Star, StarOff } from '@tamagui/lucide-icons';
+import { Minus, Plus, Star, StarOff, UtensilsCrossed } from '@tamagui/lucide-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Alert, ScrollView, useColorScheme } from 'react-native';
@@ -16,16 +16,17 @@ import {
 } from 'tamagui';
 
 import {
-  MacroCircleGroup,
-  MacroRow,
-  NutritionDisplay,
-  MicronutrientHighlights,
-  IngredientsDisplay,
+    IngredientsDisplay,
+    MacroCircleGroup,
+    MicronutrientHighlights,
+    NutritionDisplay
 } from '../../src/components';
+import { useToast } from '../../src/contexts/toast';
 import { getFoodById } from '../../src/services/api/food';
 import { useAuthStore } from '../../src/stores/auth.store';
 import { useDiaryStore } from '../../src/stores/diary.store';
 import { useFoodSearchStore } from '../../src/stores/food-search.store';
+import { useDraftItemCount, useHasDraft, useMealStore } from '../../src/stores/meal.store';
 import { MEAL_TYPES, MealType, NormalizedFood, NormalizedServing } from '../../src/types';
 import { getTodayKey } from '../../src/utils/date';
 import { scaleNutrition } from '../../src/utils/nutrition';
@@ -46,6 +47,10 @@ export default function FoodDetailScreen() {
   } = useFoodSearchStore();
   const { addEntry, selectedDate } = useDiaryStore();
   const { isAuthenticated, getAccessToken } = useAuthStore();
+  const { addItemToDraft } = useMealStore();
+  const hasDraft = useHasDraft();
+  const draftItemCount = useDraftItemCount();
+  const { showSuccess } = useToast();
 
   const [food, setFood] = useState<NormalizedFood | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -144,6 +149,34 @@ export default function FoodDetailScreen() {
       `${food.name} added to ${MEAL_TYPES.find((m) => m.type === selectedMeal)?.label}`,
       [{ text: 'OK', onPress: () => router.back() }]
     );
+  };
+
+  const handleAddToMeal = () => {
+    if (!food || !selectedServing) return;
+
+    const scaledNutrition = scaleNutrition(selectedServing.nutrition, servingAmount);
+
+    addItemToDraft({
+      foodId: food.id,
+      foodName: food.name,
+      brandName: food.brand,
+      servingId: selectedServing.id,
+      servingAmount,
+      servingUnit: selectedServing.unit,
+      servingDescription: selectedServing.description,
+      nutrition: scaledNutrition,
+      source: food.source,
+    });
+
+    showSuccess(`Added ${food.name} to meal`);
+
+    // If this is the first item, navigate to meal builder
+    if (!hasDraft || draftItemCount === 0) {
+      router.push('/meal/create');
+    } else {
+      // Otherwise stay on search to add more items
+      router.back();
+    }
   };
 
   const incrementAmount = () => setServingAmount((prev) => Math.min(prev + 0.5, 10));
@@ -336,9 +369,9 @@ export default function FoodDetailScreen() {
         </Card>
       )}
 
-      {/* Meal Selection */}
+      {/* Diary Time Slot Selection */}
       <Card elevate bordered padding="$4" marginBottom="$4" backgroundColor="$background">
-        <H3 marginBottom="$3" color="$color">Add to Meal</H3>
+        <H3 marginBottom="$3" color="$color">Add to Diary</H3>
         <XStack flexWrap="wrap" gap="$2">
           {MEAL_TYPES.map((meal) => (
             <Button
@@ -356,15 +389,31 @@ export default function FoodDetailScreen() {
         </XStack>
       </Card>
 
-      {/* Add Button */}
-      <Button
-        size="$5"
-        backgroundColor="#10B981"
-        color="white"
-        onPress={handleAddToDiary}
-      >
-        Add to Diary
-      </Button>
+      {/* Add Buttons */}
+      <YStack gap="$2">
+        <Button
+          size="$5"
+          backgroundColor="#10B981"
+          color="white"
+          onPress={handleAddToDiary}
+        >
+          Add to Diary
+        </Button>
+        <Button
+          size="$4"
+          backgroundColor="$background"
+          borderWidth={1}
+          borderColor="$borderColor"
+          icon={UtensilsCrossed}
+          onPress={handleAddToMeal}
+        >
+          <Text color="$color">
+            {hasDraft && draftItemCount > 0
+              ? `Add to Meal (${draftItemCount} item${draftItemCount !== 1 ? 's' : ''})`
+              : 'Add to Meal'}
+          </Text>
+        </Button>
+      </YStack>
     </ScrollView>
   );
 }

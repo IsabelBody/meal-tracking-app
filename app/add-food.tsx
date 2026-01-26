@@ -141,9 +141,9 @@ export default function AddFoodScreen() {
         )}
       </Card>
 
-      {/* Meal Selection */}
+      {/* Diary Time Slot Selection */}
       <Card elevate bordered padding="$4" marginBottom="$4" backgroundColor="$background">
-        <H3 marginBottom="$3" color="$color">Add to Meal</H3>
+        <H3 marginBottom="$3" color="$color">Add to Diary</H3>
         <XStack flexWrap="wrap" gap="$2">
           {MEAL_TYPES.map((meal) => (
             <Button

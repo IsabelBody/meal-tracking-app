@@ -1,26 +1,26 @@
-import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
-import { useShallow } from 'zustand/react/shallow';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { v4 as uuidv4 } from 'uuid';
 import { useMemo } from 'react';
+import { v4 as uuidv4 } from 'uuid';
+import { create } from 'zustand';
+import { createJSONStorage, persist } from 'zustand/middleware';
 import {
-  DiaryEntry,
-  MealType,
-  Nutrition,
+    cloudToLocalEntry,
+    createDiaryEntry,
+    deleteDiaryEntry,
+    getDiaryEntries,
+    localToCloudEntry,
+} from '../services/api/diary';
+import {
+    DiaryEntry,
+    MealType,
+    Nutrition,
 } from '../types';
-import { getTodayKey, formatDateKey, getISOTimestamp } from '../utils/date';
+import { formatDateKey, getISOTimestamp, getTodayKey } from '../utils/date';
 import { sumNutrition } from '../utils/nutrition';
+import { useFastingStore } from './fasting.store';
 
 // Stable empty array reference to avoid infinite re-renders
 const EMPTY_ENTRIES: DiaryEntry[] = [];
-import {
-  getDiaryEntries,
-  createDiaryEntry,
-  deleteDiaryEntry,
-  cloudToLocalEntry,
-  localToCloudEntry,
-} from '../services/api/diary';
 
 interface DiaryState {
   // Data
@@ -77,6 +77,12 @@ export const useDiaryStore = create<DiaryState>()(
           updatedAt: timestamp,
           synced: false,
         };
+
+        // Auto-end any active fast when logging food
+        const fastingState = useFastingStore.getState();
+        if (fastingState.activeFastId) {
+          fastingState.endFast(timestamp);
+        }
 
         // Add to local state immediately (optimistic update)
         set((state) => {

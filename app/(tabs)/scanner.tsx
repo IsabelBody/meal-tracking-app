@@ -1,7 +1,7 @@
-import { Camera, Flashlight, FlashlightOff, Search } from '@tamagui/lucide-icons';
+import { AlertTriangle, Camera, Flashlight, FlashlightOff, Search } from '@tamagui/lucide-icons';
 import { BarcodeScanningResult, CameraView, useCameraPermissions } from 'expo-camera';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { StyleSheet, useColorScheme } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -16,6 +16,7 @@ import {
 
 import { MacroItemGroup } from '../../src/components';
 import { getProductByBarcode } from '../../src/services/api/openfoodfacts';
+import { useAvoidFoodsStore } from '../../src/stores/avoid-foods.store';
 import { NormalizedFood } from '../../src/types';
 
 export default function ScannerScreen() {
@@ -29,6 +30,13 @@ export default function ScannerScreen() {
   const [scannedProduct, setScannedProduct] = useState<NormalizedFood | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Check for avoided ingredients
+  const checkIngredients = useAvoidFoodsStore((state) => state.checkIngredients);
+  const avoidCheck = useMemo(
+    () => checkIngredients(scannedProduct?.ingredients),
+    [scannedProduct?.ingredients, checkIngredients]
+  );
 
   const handleBarcodeScanned = async (result: BarcodeScanningResult) => {
     if (!isScanning || isLoading) return;
@@ -184,6 +192,30 @@ export default function ScannerScreen() {
       {/* Scanned Product Result */}
       {scannedProduct && (
         <YStack flex={1} padding="$4" paddingTop={16 + insets.top} backgroundColor="$background">
+          {/* Avoided Ingredients Warning */}
+          {avoidCheck.hasAvoidedIngredients && (
+            <Card
+              padding="$3"
+              marginBottom="$3"
+              backgroundColor="#EF444420"
+              borderWidth={1}
+              borderColor="#EF4444"
+            >
+              <XStack alignItems="center" gap="$2">
+                <AlertTriangle size={20} color="#EF4444" />
+                <YStack flex={1}>
+                  <Text fontWeight="600" color="#EF4444" fontSize="$3">
+                    Contains ingredients to avoid
+                  </Text>
+                  <Text fontSize="$2" color="#EF4444">
+                    {avoidCheck.matchedTerms.slice(0, 3).join(', ')}
+                    {avoidCheck.matchedTerms.length > 3 && ` +${avoidCheck.matchedTerms.length - 3} more`}
+                  </Text>
+                </YStack>
+              </XStack>
+            </Card>
+          )}
+
           <Card elevate bordered padding="$4" marginBottom="$4">
             <YStack gap="$2">
               <Text fontSize="$6" fontWeight="700" color="$color">

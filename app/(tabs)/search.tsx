@@ -1,26 +1,26 @@
-import { AlertCircle, ChevronRight, Clock, RefreshCw, Search, Star, X } from '@tamagui/lucide-icons';
+import { AlertCircle, ChevronRight, Clock, RefreshCw, Search, Star, UtensilsCrossed, X } from '@tamagui/lucide-icons';
 import { useRouter } from 'expo-router';
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
-import { FlatList, Keyboard, useColorScheme } from 'react-native';
+import { FlatList, Keyboard, ScrollView, useColorScheme } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
-    Button,
-    Card,
-    Input,
-    Paragraph,
-    Spinner,
-    Text,
-    XStack,
-    YStack,
+  Button,
+  Card,
+  Input,
+  Paragraph,
+  Spinner,
+  Text,
+  XStack,
+  YStack,
 } from 'tamagui';
 
+import { MacroCompact } from '../../src/components';
 import { useToast } from '../../src/contexts/toast';
 import { useErrorHandler } from '../../src/hooks/useErrorHandler';
 import { parseQuickNutrition, searchFoods } from '../../src/services/api/food';
 import { useFoodSearchStore } from '../../src/stores/food-search.store';
+import { useDraftItemCount, useHasDraft, useSavedMeals } from '../../src/stores/meal.store';
 import { FoodSearchResult } from '../../src/types';
-import { isNetworkError } from '../../src/utils/errors';
-import { MacroCompact } from '../../src/components';
 
 // Memoized food item component
 const FoodItem = memo(function FoodItem({
@@ -82,6 +82,10 @@ export default function SearchScreen() {
   const { error: handlerError, handleError, clearError } = useErrorHandler({
     showToast: false, // We'll handle toast display manually for retry functionality
   });
+
+  const savedMeals = useSavedMeals();
+  const hasDraft = useHasDraft();
+  const draftItemCount = useDraftItemCount();
   
   const {
     query,
@@ -167,6 +171,17 @@ export default function SearchScreen() {
     setLocalQuery(search);
     performSearch(search);
   }, []);
+
+  const handleMealPress = useCallback((mealId: string) => {
+    router.push({
+      pathname: '/meal/[id]',
+      params: { id: mealId },
+    });
+  }, [router]);
+
+  const handleContinueDraft = useCallback(() => {
+    router.push('/meal/create');
+  }, [router]);
 
   const renderFoodItem = useCallback(
     ({ item }: { item: FoodSearchResult }) => (
@@ -284,94 +299,155 @@ export default function SearchScreen() {
 
       {/* Recent Searches & Foods */}
       {showRecentContent && (
-        <YStack gap="$4">
-          {/* Recent Searches */}
-          {recentSearches.length > 0 && (
-            <YStack>
-              <XStack alignItems="center" gap="$2" marginBottom="$2">
-                <Clock size={16} color="$colorHover" />
-                <Text fontWeight="600" color="$colorHover">Recent Searches</Text>
-              </XStack>
-              <XStack flexWrap="wrap" gap="$2">
-                {recentSearches.slice(0, 5).map((search, index) => (
-                  <Button
-                    key={index}
-                    size="$2"
+        <ScrollView showsVerticalScrollIndicator={false}>
+          <YStack gap="$4">
+            {/* Draft Meal Banner */}
+            {hasDraft && draftItemCount > 0 && (
+              <Card
+                padding="$3"
+                backgroundColor="#10B98120"
+                borderWidth={1}
+                borderColor="#10B981"
+                pressStyle={{ opacity: 0.8 }}
+                onPress={handleContinueDraft}
+              >
+                <XStack alignItems="center" justifyContent="space-between">
+                  <XStack alignItems="center" gap="$2">
+                    <UtensilsCrossed size={18} color="#10B981" />
+                    <YStack>
+                      <Text fontWeight="600" color="#10B981">
+                        Meal in Progress
+                      </Text>
+                      <Text fontSize="$2" color="#10B981">
+                        {draftItemCount} item{draftItemCount !== 1 ? 's' : ''} added
+                      </Text>
+                    </YStack>
+                  </XStack>
+                  <ChevronRight size={20} color="#10B981" />
+                </XStack>
+              </Card>
+            )}
+
+            {/* Saved Meals */}
+            {savedMeals.length > 0 && (
+              <YStack>
+                <XStack alignItems="center" gap="$2" marginBottom="$2">
+                  <UtensilsCrossed size={16} color="$colorHover" />
+                  <Text fontWeight="600" color="$colorHover">Saved Meals</Text>
+                </XStack>
+                {savedMeals.slice(0, 5).map((meal) => (
+                  <Card
+                    key={meal.id}
+                    padding="$3"
+                    marginBottom="$2"
                     backgroundColor="$background"
-                    borderWidth={1}
-                    borderColor="$borderColor"
-                    onPress={() => handleRecentSearchPress(search)}
+                    pressStyle={{ opacity: 0.8 }}
+                    onPress={() => handleMealPress(meal.id)}
                   >
-                    {search}
-                  </Button>
+                    <XStack justifyContent="space-between" alignItems="center">
+                      <YStack flex={1}>
+                        <Text fontWeight="500" color="$color">{meal.name}</Text>
+                        <Text fontSize="$2" color="$colorHover">
+                          {meal.items.length} item{meal.items.length !== 1 ? 's' : ''}
+                        </Text>
+                      </YStack>
+                      <Text fontSize="$3" color="$colorHover">
+                        {Math.round(meal.totalNutrition.calories)} cal
+                      </Text>
+                    </XStack>
+                  </Card>
                 ))}
-              </XStack>
-            </YStack>
-          )}
+              </YStack>
+            )}
 
-          {/* Favorite Foods */}
-          {favoriteFoods.length > 0 && (
-            <YStack>
-              <XStack alignItems="center" gap="$2" marginBottom="$2">
-                <Star size={16} color="#F59E0B" />
-                <Text fontWeight="600" color="$colorHover">Favorites</Text>
-              </XStack>
-              {favoriteFoods.slice(0, 5).map((food) => (
-                <Card
-                  key={food.food_id}
-                  padding="$3"
-                  marginBottom="$2"
-                  backgroundColor="$background"
-                  pressStyle={{ opacity: 0.8 }}
-                  onPress={() => handleFoodPress(food)}
-                >
-                  <Text fontWeight="500" color="$color">{food.food_name}</Text>
-                  {food.brand_name && (
-                    <Text fontSize="$2" color="$colorHover">{food.brand_name}</Text>
-                  )}
-                </Card>
-              ))}
-            </YStack>
-          )}
+            {/* Recent Searches */}
+            {recentSearches.length > 0 && (
+              <YStack>
+                <XStack alignItems="center" gap="$2" marginBottom="$2">
+                  <Clock size={16} color="$colorHover" />
+                  <Text fontWeight="600" color="$colorHover">Recent Searches</Text>
+                </XStack>
+                <XStack flexWrap="wrap" gap="$2">
+                  {recentSearches.slice(0, 5).map((search, index) => (
+                    <Button
+                      key={index}
+                      size="$2"
+                      backgroundColor="$background"
+                      borderWidth={1}
+                      borderColor="$borderColor"
+                      onPress={() => handleRecentSearchPress(search)}
+                    >
+                      {search}
+                    </Button>
+                  ))}
+                </XStack>
+              </YStack>
+            )}
 
-          {/* Recent Foods */}
-          {recentFoods.length > 0 && (
-            <YStack>
-              <XStack alignItems="center" gap="$2" marginBottom="$2">
-                <Clock size={16} color="$colorHover" />
-                <Text fontWeight="600" color="$colorHover">Recent Foods</Text>
-              </XStack>
-              {recentFoods.slice(0, 5).map((food) => (
-                <Card
-                  key={food.food_id}
-                  padding="$3"
-                  marginBottom="$2"
-                  backgroundColor="$background"
-                  pressStyle={{ opacity: 0.8 }}
-                  onPress={() => handleFoodPress(food)}
-                >
-                  <Text fontWeight="500" color="$color">{food.food_name}</Text>
-                  {food.brand_name && (
-                    <Text fontSize="$2" color="$colorHover">{food.brand_name}</Text>
-                  )}
-                </Card>
-              ))}
-            </YStack>
-          )}
+            {/* Favorite Foods */}
+            {favoriteFoods.length > 0 && (
+              <YStack>
+                <XStack alignItems="center" gap="$2" marginBottom="$2">
+                  <Star size={16} color="#F59E0B" />
+                  <Text fontWeight="600" color="$colorHover">Favorites</Text>
+                </XStack>
+                {favoriteFoods.slice(0, 5).map((food) => (
+                  <Card
+                    key={food.food_id}
+                    padding="$3"
+                    marginBottom="$2"
+                    backgroundColor="$background"
+                    pressStyle={{ opacity: 0.8 }}
+                    onPress={() => handleFoodPress(food)}
+                  >
+                    <Text fontWeight="500" color="$color">{food.food_name}</Text>
+                    {food.brand_name && (
+                      <Text fontSize="$2" color="$colorHover">{food.brand_name}</Text>
+                    )}
+                  </Card>
+                ))}
+              </YStack>
+            )}
 
-          {/* Empty State */}
-          {recentSearches.length === 0 && favoriteFoods.length === 0 && recentFoods.length === 0 && (
-            <YStack alignItems="center" padding="$6">
-              <Search size={48} color="$colorHover" />
-              <Text marginTop="$3" fontSize="$5" fontWeight="600" color="$color">
-                Search for Foods
-              </Text>
-              <Paragraph textAlign="center" color="$colorHover" marginTop="$2">
-                Start typing to search our database of foods and their nutrition information.
-              </Paragraph>
-            </YStack>
-          )}
-        </YStack>
+            {/* Recent Foods */}
+            {recentFoods.length > 0 && (
+              <YStack>
+                <XStack alignItems="center" gap="$2" marginBottom="$2">
+                  <Clock size={16} color="$colorHover" />
+                  <Text fontWeight="600" color="$colorHover">Recent Foods</Text>
+                </XStack>
+                {recentFoods.slice(0, 5).map((food) => (
+                  <Card
+                    key={food.food_id}
+                    padding="$3"
+                    marginBottom="$2"
+                    backgroundColor="$background"
+                    pressStyle={{ opacity: 0.8 }}
+                    onPress={() => handleFoodPress(food)}
+                  >
+                    <Text fontWeight="500" color="$color">{food.food_name}</Text>
+                    {food.brand_name && (
+                      <Text fontSize="$2" color="$colorHover">{food.brand_name}</Text>
+                    )}
+                  </Card>
+                ))}
+              </YStack>
+            )}
+
+            {/* Empty State */}
+            {recentSearches.length === 0 && favoriteFoods.length === 0 && recentFoods.length === 0 && savedMeals.length === 0 && (
+              <YStack alignItems="center" padding="$6">
+                <Search size={48} color="$colorHover" />
+                <Text marginTop="$3" fontSize="$5" fontWeight="600" color="$color">
+                  Search for Foods
+                </Text>
+                <Paragraph textAlign="center" color="$colorHover" marginTop="$2">
+                  Start typing to search our database of foods and their nutrition information.
+                </Paragraph>
+              </YStack>
+            )}
+          </YStack>
+        </ScrollView>
       )}
     </YStack>
   );

@@ -1,9 +1,10 @@
 import { ChevronDown, ChevronUp } from '@tamagui/lucide-icons';
 import { memo, useState } from 'react';
-import { Button, Progress, Separator, Text, XStack, YStack } from 'tamagui';
+import { Button, Progress, Text, XStack, YStack } from 'tamagui';
 
-import { Nutrition, NUTRIENT_METADATA, NutrientCategory, NutrientMeta } from '../types';
-import { formatNutritionValue, calculateDailyValuePercent } from '../utils/nutrition';
+import { useEnabledAvoidTerms } from '../stores/avoid-foods.store';
+import { NUTRIENT_METADATA, NutrientCategory, NutrientMeta, Nutrition } from '../types';
+import { calculateDailyValuePercent, formatNutritionValue } from '../utils/nutrition';
 
 /**
  * Category display configuration
@@ -126,7 +127,7 @@ const NutrientCategorySection = memo(function NutrientCategorySection({
               value={value}
               unit={meta.unit}
               dailyValue={meta.dailyValue}
-              showDailyValues={showDailyValues}
+              showDailyValue={showDailyValues}
             />
           ))}
         </YStack>
@@ -294,17 +295,69 @@ export const MicronutrientHighlights = memo(function MicronutrientHighlights({
 });
 
 // ============================================================================
-// IngredientsDisplay - Show ingredients list
+// IngredientsDisplay - Show ingredients list with avoided ingredients highlighted
 // ============================================================================
 
 interface IngredientsDisplayProps {
   ingredients: string;
 }
 
+/**
+ * Parse ingredients text and return segments with highlighting info
+ */
+function parseIngredientsWithHighlights(
+  text: string,
+  avoidTerms: string[]
+): { text: string; isAvoided: boolean }[] {
+  if (avoidTerms.length === 0) {
+    return [{ text, isAvoided: false }];
+  }
+
+  // Sort terms by length (longest first) to match longer phrases first
+  const sortedTerms = [...avoidTerms].sort((a, b) => b.length - a.length);
+  
+  // Create a regex pattern that matches any of the avoided terms (case insensitive)
+  const escapedTerms = sortedTerms.map((term) =>
+    term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  );
+  const pattern = new RegExp(`(${escapedTerms.join('|')})`, 'gi');
+
+  const segments: { text: string; isAvoided: boolean }[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = pattern.exec(text)) !== null) {
+    // Add text before the match
+    if (match.index > lastIndex) {
+      segments.push({
+        text: text.slice(lastIndex, match.index),
+        isAvoided: false,
+      });
+    }
+    // Add the matched (avoided) term
+    segments.push({
+      text: match[0],
+      isAvoided: true,
+    });
+    lastIndex = pattern.lastIndex;
+  }
+
+  // Add remaining text after last match
+  if (lastIndex < text.length) {
+    segments.push({
+      text: text.slice(lastIndex),
+      isAvoided: false,
+    });
+  }
+
+  return segments.length > 0 ? segments : [{ text, isAvoided: false }];
+}
+
 export const IngredientsDisplay = memo(function IngredientsDisplay({
   ingredients,
 }: IngredientsDisplayProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const avoidTerms = useEnabledAvoidTerms();
   
   // Clean up the ingredients string
   const cleanedIngredients = ingredients
@@ -316,13 +369,33 @@ export const IngredientsDisplay = memo(function IngredientsDisplay({
     ? cleanedIngredients.slice(0, 200) + '...'
     : cleanedIngredients;
 
+  // Parse ingredients and highlight avoided terms
+  const segments = parseIngredientsWithHighlights(displayText, avoidTerms);
+  const hasAvoidedIngredients = segments.some((s) => s.isAvoided);
+
   return (
     <YStack>
-      <Text fontSize="$3" fontWeight="600" color="$color" marginBottom="$2">
-        Ingredients
-      </Text>
+      <XStack alignItems="center" gap="$2" marginBottom="$2">
+        <Text fontSize="$3" fontWeight="600" color="$color">
+          Ingredients
+        </Text>
+        {hasAvoidedIngredients && (
+          <Text fontSize="$2" color="#EF4444" fontWeight="500">
+            (contains items to avoid)
+          </Text>
+        )}
+      </XStack>
       <Text fontSize="$3" color="$colorHover" lineHeight={20}>
-        {displayText}
+        {segments.map((segment, index) => (
+          <Text
+            key={index}
+            color={segment.isAvoided ? '#EF4444' : '$colorHover'}
+            fontWeight={segment.isAvoided ? '700' : undefined}
+            backgroundColor={segment.isAvoided ? '#EF444420' : undefined}
+          >
+            {segment.text}
+          </Text>
+        ))}
       </Text>
       {shouldTruncate && (
         <Button

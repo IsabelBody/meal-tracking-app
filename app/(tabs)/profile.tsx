@@ -1,4 +1,4 @@
-import { Cloud, LogIn, LogOut, Settings, Target, User } from '@tamagui/lucide-icons';
+import { AlertTriangle, Cloud, LogIn, LogOut, Plus, Settings, Target, User, X } from '@tamagui/lucide-icons';
 import { useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Alert, ScrollView, useColorScheme } from 'react-native';
@@ -18,6 +18,7 @@ import {
 } from 'tamagui';
 
 import { useAuthStore } from '../../src/stores/auth.store';
+import { useAvoidFoodsStore } from '../../src/stores/avoid-foods.store';
 import { useGoalsStore } from '../../src/stores/goals.store';
 import { DEFAULT_GOALS } from '../../src/types';
 
@@ -28,6 +29,13 @@ export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const { goals, profile, updateGoals, updateProfile, resetGoals, isSyncing } = useGoalsStore();
   const { isAuthenticated, user, logout, getAccessToken, isLoading: authLoading } = useAuthStore();
+  const {
+    avoidedIngredients,
+    addIngredient,
+    removeIngredient,
+    toggleIngredient,
+    resetToDefaults: resetAvoidList,
+  } = useAvoidFoodsStore();
 
   // Local state for editing
   const [editedGoals, setEditedGoals] = useState({
@@ -37,6 +45,10 @@ export default function ProfileScreen() {
     fat: String(goals.fat),
     fiber: String(goals.fiber || 25),
   });
+
+  // State for adding new avoid ingredient
+  const [newAvoidTerm, setNewAvoidTerm] = useState('');
+  const [showAvoidList, setShowAvoidList] = useState(false);
 
   const handleSaveGoals = useCallback(async () => {
     const newGoals = {
@@ -105,6 +117,26 @@ export default function ProfileScreen() {
       unitSystem: profile.unitSystem === 'metric' ? 'imperial' : 'metric',
     });
   };
+
+  const handleAddAvoidTerm = useCallback(() => {
+    if (newAvoidTerm.trim()) {
+      addIngredient(newAvoidTerm.trim());
+      setNewAvoidTerm('');
+    }
+  }, [newAvoidTerm, addIngredient]);
+
+  const handleResetAvoidList = useCallback(() => {
+    Alert.alert(
+      'Reset Avoid List',
+      'This will reset your avoid list to the default sugar-related ingredients. Any custom items will be removed.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Reset', style: 'destructive', onPress: resetAvoidList },
+      ]
+    );
+  }, [resetAvoidList]);
+
+  const enabledCount = avoidedIngredients.filter((i) => i.enabled).length;
 
   return (
     <ScrollView
@@ -252,6 +284,109 @@ export default function ProfileScreen() {
             <Switch.Thumb animation="bouncy" />
           </Switch>
         </XStack>
+      </Card>
+
+      {/* Avoid Foods Section */}
+      <Card elevate bordered padding="$4" marginBottom="$4" backgroundColor="$background">
+        <XStack alignItems="center" justifyContent="space-between" marginBottom="$3">
+          <XStack alignItems="center" gap="$2">
+            <AlertTriangle size={24} color="#EF4444" />
+            <H3 color="$color">Avoid List</H3>
+          </XStack>
+          <Text fontSize="$2" color="$colorHover">
+            {enabledCount} active
+          </Text>
+        </XStack>
+
+        <Text fontSize="$3" color="$colorHover" marginBottom="$3">
+          Foods containing these ingredients will be highlighted in red when scanning or viewing details.
+        </Text>
+
+        {/* Add new term */}
+        <XStack gap="$2" marginBottom="$3">
+          <Input
+            flex={1}
+            placeholder="Add ingredient to avoid..."
+            value={newAvoidTerm}
+            onChangeText={setNewAvoidTerm}
+            onSubmitEditing={handleAddAvoidTerm}
+          />
+          <Button
+            backgroundColor="#EF4444"
+            color="white"
+            icon={Plus}
+            onPress={handleAddAvoidTerm}
+            disabled={!newAvoidTerm.trim()}
+          />
+        </XStack>
+
+        {/* Toggle list visibility */}
+        <Button
+          size="$3"
+          backgroundColor="$backgroundHover"
+          marginBottom="$3"
+          onPress={() => setShowAvoidList(!showAvoidList)}
+        >
+          <Text color="$color">
+            {showAvoidList ? 'Hide list' : `Show all ${avoidedIngredients.length} items`}
+          </Text>
+        </Button>
+
+        {/* Ingredient list */}
+        {showAvoidList && (
+          <YStack gap="$2" marginBottom="$3">
+            {avoidedIngredients.map((item) => (
+              <XStack
+                key={item.id}
+                alignItems="center"
+                justifyContent="space-between"
+                backgroundColor="$backgroundHover"
+                padding="$2"
+                borderRadius="$2"
+              >
+                <XStack alignItems="center" gap="$2" flex={1}>
+                  <Switch
+                    size="$2"
+                    checked={item.enabled}
+                    onCheckedChange={() => toggleIngredient(item.id)}
+                    backgroundColor={item.enabled ? '#EF4444' : '$backgroundHover'}
+                  >
+                    <Switch.Thumb animation="bouncy" />
+                  </Switch>
+                  <Text
+                    color={item.enabled ? '$color' : '$colorHover'}
+                    textDecorationLine={item.enabled ? 'none' : 'line-through'}
+                    flex={1}
+                  >
+                    {item.term}
+                  </Text>
+                  {item.isDefault && (
+                    <Text fontSize="$1" color="$colorHover">
+                      default
+                    </Text>
+                  )}
+                </XStack>
+                <Button
+                  size="$2"
+                  chromeless
+                  icon={X}
+                  onPress={() => removeIngredient(item.id)}
+                  color="$colorHover"
+                />
+              </XStack>
+            ))}
+          </YStack>
+        )}
+
+        <Button
+          size="$3"
+          backgroundColor="$background"
+          borderWidth={1}
+          borderColor="$borderColor"
+          onPress={handleResetAvoidList}
+        >
+          Reset to Defaults
+        </Button>
       </Card>
 
       {/* Account Section */}
