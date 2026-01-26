@@ -15,7 +15,7 @@ import {
 import { MacroItemGroup } from '../src/components';
 import { useAuthStore } from '../src/stores/auth.store';
 import { useDiaryStore } from '../src/stores/diary.store';
-import { MEAL_TYPES, MealType, NormalizedFood, NormalizedServing } from '../src/types';
+import { NormalizedFood, NormalizedServing } from '../src/types';
 import { getTodayKey } from '../src/utils/date';
 import { scaleNutrition } from '../src/utils/nutrition';
 
@@ -24,7 +24,6 @@ export default function AddFoodScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const params = useLocalSearchParams<{
-    mealType?: string;
     date?: string;
     foodData?: string;
     source?: string;
@@ -36,9 +35,6 @@ export default function AddFoodScreen() {
   const [food, setFood] = useState<NormalizedFood | null>(null);
   const [selectedServing, setSelectedServing] = useState<NormalizedServing | null>(null);
   const [servingAmount, setServingAmount] = useState(1);
-  const [selectedMeal, setSelectedMeal] = useState<MealType>(
-    (params.mealType as MealType) || 'breakfast'
-  );
   const [selectedDate] = useState(params.date || getTodayKey());
 
   useEffect(() => {
@@ -66,7 +62,7 @@ export default function AddFoodScreen() {
 
     await addEntry({
       date: selectedDate,
-      mealType: selectedMeal,
+      mealType: 'snack', // Default value for backwards compatibility
       foodId: food.id,
       foodName: food.name,
       brandName: food.brand,
@@ -80,10 +76,10 @@ export default function AddFoodScreen() {
 
     Alert.alert(
       'Added',
-      `${food.name} added to ${MEAL_TYPES.find((m) => m.type === selectedMeal)?.label}`,
+      `${food.name} added to diary`,
       [{ text: 'OK', onPress: () => router.back() }]
     );
-  }, [food, selectedServing, servingAmount, selectedDate, selectedMeal, isAuthenticated, getAccessToken, addEntry, router]);
+  }, [food, selectedServing, servingAmount, selectedDate, isAuthenticated, getAccessToken, addEntry, router]);
 
   const incrementAmount = () => setServingAmount((prev) => Math.min(prev + 0.5, 10));
   const decrementAmount = () => setServingAmount((prev) => Math.max(prev - 0.5, 0.5));
@@ -139,26 +135,6 @@ export default function AddFoodScreen() {
             Scanned from barcode
           </Text>
         )}
-      </Card>
-
-      {/* Diary Time Slot Selection */}
-      <Card elevate bordered padding="$4" marginBottom="$4" backgroundColor="$background">
-        <H3 marginBottom="$3" color="$color">Add to Diary</H3>
-        <XStack flexWrap="wrap" gap="$2">
-          {MEAL_TYPES.map((meal) => (
-            <Button
-              key={meal.type}
-              size="$3"
-              backgroundColor={selectedMeal === meal.type ? '#10B981' : '$background'}
-              color={selectedMeal === meal.type ? 'white' : '$color'}
-              borderWidth={1}
-              borderColor={selectedMeal === meal.type ? '#10B981' : '$borderColor'}
-              onPress={() => setSelectedMeal(meal.type)}
-            >
-              {meal.label}
-            </Button>
-          ))}
-        </XStack>
       </Card>
 
       {/* Serving Selection */}

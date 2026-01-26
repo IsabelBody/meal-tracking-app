@@ -5,4 +5,5 @@ export * from './fasting.store';
 export * from './food-search.store';
 export * from './goals.store';
 export * from './meal.store';
+export * from './weight.store';
 

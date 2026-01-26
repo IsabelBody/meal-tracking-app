@@ -27,7 +27,7 @@ import { useAuthStore } from '../../src/stores/auth.store';
 import { useDiaryStore } from '../../src/stores/diary.store';
 import { useFoodSearchStore } from '../../src/stores/food-search.store';
 import { useDraftItemCount, useHasDraft, useMealStore } from '../../src/stores/meal.store';
-import { MEAL_TYPES, MealType, NormalizedFood, NormalizedServing } from '../../src/types';
+import { NormalizedFood, NormalizedServing } from '../../src/types';
 import { getTodayKey } from '../../src/utils/date';
 import { scaleNutrition } from '../../src/utils/nutrition';
 
@@ -58,7 +58,6 @@ export default function FoodDetailScreen() {
 
   const [selectedServing, setSelectedServing] = useState<NormalizedServing | null>(null);
   const [servingAmount, setServingAmount] = useState(1);
-  const [selectedMeal, setSelectedMeal] = useState<MealType>('breakfast');
 
   const favorite = food ? isFavorite(food.id) : false;
 
@@ -132,7 +131,7 @@ export default function FoodDetailScreen() {
 
     await addEntry({
       date: selectedDate || getTodayKey(),
-      mealType: selectedMeal,
+      mealType: 'snack', // Default value for backwards compatibility
       foodId: food.id,
       foodName: food.name,
       brandName: food.brand,
@@ -146,7 +145,7 @@ export default function FoodDetailScreen() {
 
     Alert.alert(
       'Added',
-      `${food.name} added to ${MEAL_TYPES.find((m) => m.type === selectedMeal)?.label}`,
+      `${food.name} added to diary`,
       [{ text: 'OK', onPress: () => router.back() }]
     );
   };
@@ -368,26 +367,6 @@ export default function FoodDetailScreen() {
           <IngredientsDisplay ingredients={food.ingredients} />
         </Card>
       )}
-
-      {/* Diary Time Slot Selection */}
-      <Card elevate bordered padding="$4" marginBottom="$4" backgroundColor="$background">
-        <H3 marginBottom="$3" color="$color">Add to Diary</H3>
-        <XStack flexWrap="wrap" gap="$2">
-          {MEAL_TYPES.map((meal) => (
-            <Button
-              key={meal.type}
-              size="$3"
-              backgroundColor={selectedMeal === meal.type ? '#10B981' : '$background'}
-              color={selectedMeal === meal.type ? 'white' : '$color'}
-              borderWidth={1}
-              borderColor={selectedMeal === meal.type ? '#10B981' : '$borderColor'}
-              onPress={() => setSelectedMeal(meal.type)}
-            >
-              {meal.label}
-            </Button>
-          ))}
-        </XStack>
-      </Card>
 
       {/* Add Buttons */}
       <YStack gap="$2">

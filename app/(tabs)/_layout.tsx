@@ -1,4 +1,4 @@
-import { Book, Camera, ChevronLeft, ChevronRight, List, PieChart, Plus, Search, Timer, User, UtensilsCrossed, X } from '@tamagui/lucide-icons';
+import { Book, Camera, ChevronLeft, ChevronRight, List, PieChart, Plus, Scale, Search, Timer, User, UtensilsCrossed, X } from '@tamagui/lucide-icons';
 import { Tabs, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Modal, Pressable, TouchableWithoutFeedback, useColorScheme, View } from 'react-native';
@@ -355,6 +355,13 @@ export default function TabLayout() {
         options={{
           title: 'Fasting',
           tabBarIcon: ({ color, size }) => <Timer size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="weight"
+        options={{
+          title: 'Weight',
+          tabBarIcon: ({ color, size }) => <Scale size={size} color={color} />,
         }}
       />
       <Tabs.Screen

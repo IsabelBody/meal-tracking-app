@@ -3,4 +3,5 @@ export * from './diary';
 export * from './fasting';
 export * from './food';
 export * from './meal';
+export * from './weight';
 
