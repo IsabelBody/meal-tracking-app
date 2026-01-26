@@ -56,9 +56,11 @@ interface MealState {
   // Data
   savedMeals: SavedMeal[];
   draftMeal: DraftMeal | null;
+  editingMealId: string | null; // ID of meal being edited (null = creating new)
 
   // Actions
   startDraftMeal: () => void;
+  startEditingMeal: (mealId: string) => boolean; // Returns false if meal not found
   addItemToDraft: (item: Omit<MealItem, 'id'>) => void;
   removeItemFromDraft: (itemId: string) => void;
   updateDraftName: (name: string) => void;
@@ -71,6 +73,7 @@ interface MealState {
   getMealById: (mealId: string) => SavedMeal | undefined;
   hasDraft: () => boolean;
   getDraftItemCount: () => number;
+  isEditing: () => boolean;
 }
 
 export const useMealStore = create<MealState>()(
@@ -79,6 +82,7 @@ export const useMealStore = create<MealState>()(
       // Initial state
       savedMeals: [],
       draftMeal: null,
+      editingMealId: null,
 
       // Actions
       startDraftMeal: () => {
@@ -87,7 +91,22 @@ export const useMealStore = create<MealState>()(
             items: [],
             name: undefined,
           },
+          editingMealId: null,
         });
+      },
+
+      startEditingMeal: (mealId) => {
+        const meal = get().savedMeals.find((m) => m.id === mealId);
+        if (!meal) return false;
+
+        set({
+          draftMeal: {
+            items: [...meal.items], // Clone the items array
+            name: meal.name,
+          },
+          editingMealId: mealId,
+        });
+        return true;
       },
 
       addItemToDraft: (itemData) => {
@@ -134,31 +153,61 @@ export const useMealStore = create<MealState>()(
       },
 
       saveDraftMeal: (name) => {
-        const { draftMeal } = get();
+        const { draftMeal, editingMealId, savedMeals } = get();
         if (!draftMeal || draftMeal.items.length === 0) return null;
 
         const timestamp = getISOTimestamp();
         const totalNutrition = sumMealItemNutrition(draftMeal.items);
+        const trimmedName = name.trim() || 'Untitled Meal';
 
+        // If editing an existing meal, update it
+        if (editingMealId) {
+          const index = savedMeals.findIndex((m) => m.id === editingMealId);
+          if (index === -1) return null;
+
+          const updatedMeals = [...savedMeals];
+          const existingMeal = updatedMeals[index];
+
+          const updatedMeal: SavedMeal = {
+            ...existingMeal,
+            name: trimmedName,
+            items: draftMeal.items,
+            totalNutrition,
+            updatedAt: timestamp,
+          };
+
+          updatedMeals[index] = updatedMeal;
+
+          set({
+            savedMeals: updatedMeals,
+            draftMeal: null,
+            editingMealId: null,
+          });
+
+          return updatedMeal;
+        }
+
+        // Creating a new meal
         const newMeal: SavedMeal = {
           id: uuidv4(),
-          name: name.trim() || 'Untitled Meal',
+          name: trimmedName,
           items: draftMeal.items,
           totalNutrition,
           createdAt: timestamp,
           updatedAt: timestamp,
         };
 
-        set((state) => ({
-          savedMeals: [newMeal, ...state.savedMeals],
+        set({
+          savedMeals: [newMeal, ...savedMeals],
           draftMeal: null,
-        }));
+          editingMealId: null,
+        });
 
         return newMeal;
       },
 
       cancelDraft: () => {
-        set({ draftMeal: null });
+        set({ draftMeal: null, editingMealId: null });
       },
 
       deleteMeal: (mealId) => {
@@ -204,6 +253,10 @@ export const useMealStore = create<MealState>()(
       getDraftItemCount: () => {
         return get().draftMeal?.items.length ?? 0;
       },
+
+      isEditing: () => {
+        return get().editingMealId !== null;
+      },
     }),
     {
       name: 'meal-tracker-saved-meals',
@@ -211,6 +264,7 @@ export const useMealStore = create<MealState>()(
       partialize: (state) => ({
         savedMeals: state.savedMeals,
         draftMeal: state.draftMeal,
+        editingMealId: state.editingMealId,
       }),
     }
   )
@@ -231,4 +285,12 @@ export function useHasDraft() {
 
 export function useDraftItemCount() {
   return useMealStore((state) => state.draftMeal?.items.length ?? 0);
+}
+
+export function useIsEditingMeal() {
+  return useMealStore((state) => state.editingMealId !== null);
+}
+
+export function useEditingMealId() {
+  return useMealStore((state) => state.editingMealId);
 }

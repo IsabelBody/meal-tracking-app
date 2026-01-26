@@ -14,7 +14,7 @@ import {
 } from 'tamagui';
 
 import { MacroCompact } from '../../src/components';
-import { useDraftMeal, useMealStore } from '../../src/stores/meal.store';
+import { useDraftMeal, useIsEditingMeal, useMealStore } from '../../src/stores/meal.store';
 
 export default function CreateMealScreen() {
   const router = useRouter();
@@ -22,6 +22,7 @@ export default function CreateMealScreen() {
   const isDark = colorScheme === 'dark';
 
   const draftMeal = useDraftMeal();
+  const isEditing = useIsEditingMeal();
   const { removeItemFromDraft, saveDraftMeal, cancelDraft } = useMealStore();
   const [mealName, setMealName] = useState(draftMeal?.name || '');
 
@@ -47,17 +48,24 @@ export default function CreateMealScreen() {
 
     const savedMeal = saveDraftMeal(trimmedName);
     if (savedMeal) {
-      Alert.alert('Saved', `"${savedMeal.name}" has been saved to your meals`, [
+      const message = isEditing
+        ? `"${savedMeal.name}" has been updated`
+        : `"${savedMeal.name}" has been saved to your meals`;
+      Alert.alert(isEditing ? 'Updated' : 'Saved', message, [
         { text: 'OK', onPress: () => router.back() },
       ]);
     }
-  }, [draftMeal, mealName, saveDraftMeal, router]);
+  }, [draftMeal, mealName, saveDraftMeal, router, isEditing]);
 
   const handleCancel = useCallback(() => {
     if (draftMeal && draftMeal.items.length > 0) {
+      const title = isEditing ? 'Discard Changes?' : 'Discard Meal?';
+      const message = isEditing
+        ? 'You have unsaved changes. Are you sure you want to discard them?'
+        : 'You have unsaved items. Are you sure you want to discard this meal?';
       Alert.alert(
-        'Discard Meal?',
-        'You have unsaved items. Are you sure you want to discard this meal?',
+        title,
+        message,
         [
           { text: 'Keep Editing', style: 'cancel' },
           {
@@ -74,7 +82,7 @@ export default function CreateMealScreen() {
       cancelDraft();
       router.back();
     }
-  }, [draftMeal, cancelDraft, router]);
+  }, [draftMeal, cancelDraft, router, isEditing]);
 
   // Calculate totals
   const totalCalories = draftMeal?.items.reduce(
@@ -113,7 +121,7 @@ export default function CreateMealScreen() {
           icon={X}
           onPress={handleCancel}
         />
-        <H2 color="$color">Create Meal</H2>
+        <H2 color="$color">{isEditing ? 'Edit Meal' : 'Create Meal'}</H2>
         <Button
           size="$3"
           backgroundColor="#10B981"
@@ -122,7 +130,7 @@ export default function CreateMealScreen() {
           disabled={!draftMeal || draftMeal.items.length === 0 || !mealName.trim()}
           opacity={!draftMeal || draftMeal.items.length === 0 || !mealName.trim() ? 0.5 : 1}
         >
-          Save
+          {isEditing ? 'Update' : 'Save'}
         </Button>
       </XStack>
 

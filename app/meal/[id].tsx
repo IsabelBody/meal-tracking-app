@@ -1,4 +1,4 @@
-import { ChevronLeft, Trash2 } from '@tamagui/lucide-icons';
+import { ChevronLeft, Pencil, Trash2 } from '@tamagui/lucide-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Alert, ScrollView, useColorScheme } from 'react-native';
@@ -25,12 +25,23 @@ export default function MealDetailScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
-  const { getMealById, deleteMeal } = useMealStore();
+  const { getMealById, deleteMeal, startEditingMeal } = useMealStore();
   const { addEntry, selectedDate } = useDiaryStore();
   const { isAuthenticated, getAccessToken } = useAuthStore();
 
   const meal = id ? getMealById(id) : undefined;
   const [selectedMealType, setSelectedMealType] = useState<MealType>('breakfast');
+
+  const handleEdit = useCallback(() => {
+    if (!meal) return;
+
+    const success = startEditingMeal(meal.id);
+    if (success) {
+      router.push('/meal/create');
+    } else {
+      Alert.alert('Error', 'Could not load meal for editing');
+    }
+  }, [meal, startEditingMeal, router]);
 
   const handleAddToDiary = useCallback(async () => {
     if (!meal) return;
@@ -113,13 +124,22 @@ export default function MealDetailScreen() {
         <H2 color="$color" numberOfLines={1} flex={1} textAlign="center">
           {meal.name}
         </H2>
-        <Button
-          size="$3"
-          chromeless
-          icon={Trash2}
-          color="$colorHover"
-          onPress={handleDelete}
-        />
+        <XStack gap="$1">
+          <Button
+            size="$3"
+            chromeless
+            icon={Pencil}
+            color="$colorHover"
+            onPress={handleEdit}
+          />
+          <Button
+            size="$3"
+            chromeless
+            icon={Trash2}
+            color="$colorHover"
+            onPress={handleDelete}
+          />
+        </XStack>
       </XStack>
 
       <ScrollView

@@ -52,6 +52,9 @@ export const useGoalsStore = create<GoalsState>()(
       goals: DEFAULT_GOALS,
       profile: {
         unitSystem: 'metric',
+        height: 169.5,
+        age: 22,
+        activityLevel: 'sedentary',
       },
       isSyncing: false,
       lastSyncedAt: null,

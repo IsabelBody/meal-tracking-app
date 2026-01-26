@@ -17,6 +17,7 @@ interface FastingState {
   startFast: (customStartTime?: string) => FastingSession;
   endFast: (endTime?: string) => void;
   deleteFast: (sessionId: string) => void;
+  updateFastGoal: (sessionId: string, goalDuration: number) => void;
   getSessionForDate: (date: string) => FastingSession | undefined;
   getActiveFast: () => FastingSession | null;
 }
@@ -113,6 +114,26 @@ export const useFastingStore = create<FastingState>()(
             // Clear activeFastId if we deleted the active fast
             activeFastId: activeFastId === sessionId ? null : activeFastId,
           };
+        });
+      },
+
+      updateFastGoal: (sessionId, goalDuration) => {
+        set((state) => {
+          const newSessions = { ...state.sessions };
+
+          for (const date in newSessions) {
+            const index = newSessions[date].findIndex((s) => s.id === sessionId);
+            if (index !== -1) {
+              newSessions[date] = [...newSessions[date]];
+              newSessions[date][index] = {
+                ...newSessions[date][index],
+                goalDuration,
+              };
+              break;
+            }
+          }
+
+          return { sessions: newSessions };
         });
       },
 

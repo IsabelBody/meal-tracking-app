@@ -1,18 +1,15 @@
-import { AlertTriangle, Calculator, ChevronDown, Cloud, LogIn, LogOut, Plus, Settings, Target, User, X } from '@tamagui/lucide-icons';
+import { AlertTriangle, Cloud, Edit3, LogIn, LogOut, Plus, Ruler, Settings, Target, User, X } from '@tamagui/lucide-icons';
 import { useRouter } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Alert, ScrollView, useColorScheme } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Button,
   Card,
   H3,
-  H4,
   Input,
   Label,
-  Select,
   Separator,
-  Sheet,
   Spinner,
   Switch,
   Text,
@@ -24,18 +21,7 @@ import { useAuthStore } from '../../src/stores/auth.store';
 import { useAvoidFoodsStore } from '../../src/stores/avoid-foods.store';
 import { useGoalsStore } from '../../src/stores/goals.store';
 import { DEFAULT_GOALS } from '../../src/types';
-import {
-  Gender,
-  ActivityLevel,
-  WeightGoal,
-  ACTIVITY_MULTIPLIERS,
-  WEIGHT_GOAL_ADJUSTMENTS,
-  calculateTDEE,
-  calculateTargetCalories,
-  calculateRecommendedMacros,
-  feetInchesToCm,
-  cmToFeetInches,
-} from '../../src/utils/nutrition';
+import { ACTIVITY_MULTIPLIERS, ActivityLevel } from '../../src/utils/nutrition';
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -52,6 +38,10 @@ export default function ProfileScreen() {
     resetToDefaults: resetAvoidList,
   } = useAvoidFoodsStore();
 
+  // Edit mode states
+  const [isEditingGoals, setIsEditingGoals] = useState(false);
+  const [isEditingPersonalInfo, setIsEditingPersonalInfo] = useState(false);
+
   // Local state for editing
   const [editedGoals, setEditedGoals] = useState({
     calories: String(goals.calories),
@@ -61,102 +51,15 @@ export default function ProfileScreen() {
     fiber: String(goals.fiber || 25),
   });
 
+  // State for personal info editing
+  const [editedHeight, setEditedHeight] = useState(String(profile.height || 169.5));
+  const [editedAge, setEditedAge] = useState(String(profile.age || 22));
+  const [editedActivityLevel, setEditedActivityLevel] = useState<ActivityLevel>(profile.activityLevel || 'sedentary');
+
   // State for adding new avoid ingredient
   const [newAvoidTerm, setNewAvoidTerm] = useState('');
   const [showAvoidList, setShowAvoidList] = useState(false);
 
-  // Goal Calculator state
-  const [showCalculator, setShowCalculator] = useState(false);
-  const isImperial = profile.unitSystem === 'imperial';
-  
-  // Calculator form state (initialized from profile if available)
-  const [calcGender, setCalcGender] = useState<Gender>(profile.gender || 'female');
-  const [calcWeight, setCalcWeight] = useState(
-    profile.weight ? String(profile.weight) : ''
-  );
-  const [calcHeightFeet, setCalcHeightFeet] = useState(
-    profile.height ? String(cmToFeetInches(profile.height).feet) : ''
-  );
-  const [calcHeightInches, setCalcHeightInches] = useState(
-    profile.height ? String(cmToFeetInches(profile.height).inches) : ''
-  );
-  const [calcHeightCm, setCalcHeightCm] = useState(
-    profile.height ? String(profile.height) : ''
-  );
-  const [calcAge, setCalcAge] = useState(profile.age ? String(profile.age) : '');
-  const [calcActivity, setCalcActivity] = useState<ActivityLevel>(profile.activityLevel || 'moderate');
-  const [calcWeightGoal, setCalcWeightGoal] = useState<WeightGoal>(profile.weightGoal || 'maintain');
-  const [macroPreset, setMacroPreset] = useState<'balanced' | 'low_carb' | 'high_protein' | 'keto'>('balanced');
-
-  // Calculate TDEE and recommended calories
-  const calculatorResults = useMemo(() => {
-    const weight = parseFloat(calcWeight) || 0;
-    
-    const height = isImperial
-      ? feetInchesToCm(parseInt(calcHeightFeet) || 0, parseInt(calcHeightInches) || 0)
-      : parseFloat(calcHeightCm) || 0;
-    
-    const age = parseInt(calcAge) || 0;
-
-    if (!weight || !height || !age) {
-      return null;
-    }
-
-    const stats = {
-      gender: calcGender,
-      weight,
-      height,
-      age,
-      activityLevel: calcActivity,
-    };
-
-    const tdee = calculateTDEE(stats);
-    const targetCalories = calculateTargetCalories(stats, calcWeightGoal);
-    const macros = calculateRecommendedMacros(targetCalories, macroPreset);
-
-    return { tdee, targetCalories, macros, stats };
-  }, [calcGender, calcWeight, calcHeightFeet, calcHeightInches, calcHeightCm, calcAge, calcActivity, calcWeightGoal, macroPreset, isImperial]);
-
-  const handleApplyCalculatedGoals = useCallback(async () => {
-    if (!calculatorResults) return;
-
-    const { targetCalories, macros, stats } = calculatorResults;
-    
-    // Save body stats to profile
-    updateProfile({
-      gender: calcGender,
-      weight: stats.weight,
-      height: stats.height,
-      age: stats.age,
-      activityLevel: calcActivity,
-      weightGoal: calcWeightGoal,
-    });
-
-    // Update goals
-    const newGoals = {
-      calories: targetCalories,
-      protein: macros.protein,
-      carbs: macros.carbs,
-      fat: macros.fat,
-      fiber: 25, // Standard recommendation
-    };
-
-    // Update local state
-    setEditedGoals({
-      calories: String(newGoals.calories),
-      protein: String(newGoals.protein),
-      carbs: String(newGoals.carbs),
-      fat: String(newGoals.fat),
-      fiber: String(newGoals.fiber),
-    });
-
-    // Get token for cloud sync if authenticated
-    const token = isAuthenticated ? await getAccessToken() : null;
-    await updateGoals(newGoals, token || undefined);
-    
-    setShowCalculator(false);
-    Alert.alert('Goals Updated', `Your daily calorie goal is now ${targetCalories} calories based on your profile.`);
-  }, [calculatorResults, calcGender, calcActivity, calcWeightGoal, updateProfile, updateGoals, isAuthenticated, getAccessToken]);
 
   const handleSaveGoals = useCallback(async () => {
     const newGoals = {
@@ -170,9 +73,20 @@ export default function ProfileScreen() {
     // Get token for cloud sync if authenticated
     const token = isAuthenticated ? await getAccessToken() : null;
     await updateGoals(newGoals, token || undefined);
-    
-    Alert.alert('Success', 'Your goals have been updated.');
+    setIsEditingGoals(false);
   }, [editedGoals, isAuthenticated, getAccessToken, updateGoals]);
+
+  const handleCancelGoalsEdit = useCallback(() => {
+    // Reset to current goals
+    setEditedGoals({
+      calories: String(goals.calories),
+      protein: String(goals.protein),
+      carbs: String(goals.carbs),
+      fat: String(goals.fat),
+      fiber: String(goals.fiber || 25),
+    });
+    setIsEditingGoals(false);
+  }, [goals]);
 
   const handleLogout = useCallback(async () => {
     Alert.alert(
@@ -214,6 +128,7 @@ export default function ProfileScreen() {
               fat: String(DEFAULT_GOALS.fat),
               fiber: String(DEFAULT_GOALS.fiber),
             });
+            setIsEditingGoals(false);
           },
         },
       ]
@@ -225,6 +140,26 @@ export default function ProfileScreen() {
       unitSystem: profile.unitSystem === 'metric' ? 'imperial' : 'metric',
     });
   };
+
+  const handleSavePersonalInfo = useCallback(() => {
+    const height = parseFloat(editedHeight) || 169.5;
+    const age = parseInt(editedAge, 10) || 22;
+    
+    updateProfile({
+      height,
+      age,
+      activityLevel: editedActivityLevel,
+    });
+    setIsEditingPersonalInfo(false);
+  }, [editedHeight, editedAge, editedActivityLevel, updateProfile]);
+
+  const handleCancelPersonalInfoEdit = useCallback(() => {
+    // Reset to current profile
+    setEditedHeight(String(profile.height || 169.5));
+    setEditedAge(String(profile.age || 22));
+    setEditedActivityLevel(profile.activityLevel || 'sedentary');
+    setIsEditingPersonalInfo(false);
+  }, [profile]);
 
   const handleAddAvoidTerm = useCallback(() => {
     if (newAvoidTerm.trim()) {
@@ -251,378 +186,172 @@ export default function ProfileScreen() {
       style={{ flex: 1, backgroundColor: isDark ? '#111827' : '#F9FAFB' }}
       contentContainerStyle={{ padding: 16, paddingTop: 16 + insets.top }}
     >
-      {/* Goal Calculator Section */}
-      <Card elevate bordered padding="$4" marginBottom="$4" backgroundColor="$background">
-        <XStack alignItems="center" justifyContent="space-between" marginBottom="$3">
-          <XStack alignItems="center" gap="$2">
-            <Calculator size={24} color="#6366F1" />
-            <H3 color="$color">Goal Calculator</H3>
-          </XStack>
-          <Button
-            size="$3"
-            backgroundColor={showCalculator ? '$backgroundHover' : '#6366F1'}
-            color={showCalculator ? '$color' : 'white'}
-            onPress={() => setShowCalculator(!showCalculator)}
-          >
-            {showCalculator ? 'Hide' : 'Calculate'}
-          </Button>
-        </XStack>
-
-        <Text fontSize="$3" color="$colorHover" marginBottom={showCalculator ? '$4' : 0}>
-          Calculate your recommended daily calories based on your body stats and goals.
-        </Text>
-
-        {showCalculator && (
-          <YStack gap="$4" marginTop="$2">
-            <Separator />
-            
-            {/* Gender */}
-            <YStack gap="$2">
-              <Label color="$color">Gender</Label>
-              <XStack gap="$2">
-                <Button
-                  flex={1}
-                  backgroundColor={calcGender === 'female' ? '#6366F1' : '$backgroundHover'}
-                  color={calcGender === 'female' ? 'white' : '$color'}
-                  onPress={() => setCalcGender('female')}
-                >
-                  Female
-                </Button>
-                <Button
-                  flex={1}
-                  backgroundColor={calcGender === 'male' ? '#6366F1' : '$backgroundHover'}
-                  color={calcGender === 'male' ? 'white' : '$color'}
-                  onPress={() => setCalcGender('male')}
-                >
-                  Male
-                </Button>
-              </XStack>
-            </YStack>
-
-            {/* Age */}
-            <YStack gap="$2">
-              <Label color="$color">Age</Label>
-              <Input
-                value={calcAge}
-                onChangeText={setCalcAge}
-                keyboardType="numeric"
-                placeholder="25"
-              />
-            </YStack>
-
-            {/* Weight */}
-            <YStack gap="$2">
-              <Label color="$color">Weight (kg)</Label>
-              <Input
-                value={calcWeight}
-                onChangeText={setCalcWeight}
-                keyboardType="numeric"
-                placeholder="68"
-              />
-            </YStack>
-
-            {/* Height */}
-            <YStack gap="$2">
-              <Label color="$color">Height</Label>
-              {isImperial ? (
-                <XStack gap="$2">
-                  <YStack flex={1}>
-                    <Input
-                      value={calcHeightFeet}
-                      onChangeText={setCalcHeightFeet}
-                      keyboardType="numeric"
-                      placeholder="5"
-                    />
-                    <Text fontSize="$2" color="$colorHover" textAlign="center" marginTop="$1">feet</Text>
-                  </YStack>
-                  <YStack flex={1}>
-                    <Input
-                      value={calcHeightInches}
-                      onChangeText={setCalcHeightInches}
-                      keyboardType="numeric"
-                      placeholder="7"
-                    />
-                    <Text fontSize="$2" color="$colorHover" textAlign="center" marginTop="$1">inches</Text>
-                  </YStack>
-                </XStack>
-              ) : (
-                <Input
-                  value={calcHeightCm}
-                  onChangeText={setCalcHeightCm}
-                  keyboardType="numeric"
-                  placeholder="170"
-                />
-              )}
-            </YStack>
-
-            {/* Activity Level */}
-            <YStack gap="$2">
-              <Label color="$color">Activity Level</Label>
-              <YStack gap="$2">
-                {(Object.entries(ACTIVITY_MULTIPLIERS) as [ActivityLevel, typeof ACTIVITY_MULTIPLIERS[ActivityLevel]][]).map(([key, value]) => (
-                  <Button
-                    key={key}
-                    backgroundColor={calcActivity === key ? '#6366F1' : '$backgroundHover'}
-                    justifyContent="flex-start"
-                    paddingHorizontal="$3"
-                    onPress={() => setCalcActivity(key)}
-                  >
-                    <YStack flex={1}>
-                      <Text 
-                        color={calcActivity === key ? 'white' : '$color'} 
-                        fontWeight="500"
-                      >
-                        {value.label}
-                      </Text>
-                      <Text 
-                        fontSize="$2" 
-                        color={calcActivity === key ? 'rgba(255,255,255,0.8)' : '$colorHover'}
-                      >
-                        {value.description}
-                      </Text>
-                    </YStack>
-                  </Button>
-                ))}
-              </YStack>
-            </YStack>
-
-            {/* Weight Goal */}
-            <YStack gap="$2">
-              <Label color="$color">Weight Goal</Label>
-              <YStack gap="$2">
-                {(Object.entries(WEIGHT_GOAL_ADJUSTMENTS) as [WeightGoal, typeof WEIGHT_GOAL_ADJUSTMENTS[WeightGoal]][]).map(([key, value]) => (
-                  <Button
-                    key={key}
-                    backgroundColor={calcWeightGoal === key ? '#6366F1' : '$backgroundHover'}
-                    justifyContent="flex-start"
-                    paddingHorizontal="$3"
-                    onPress={() => setCalcWeightGoal(key)}
-                  >
-                    <XStack flex={1} justifyContent="space-between" alignItems="center">
-                      <Text color={calcWeightGoal === key ? 'white' : '$color'}>
-                        {value.label}
-                      </Text>
-                      <Text 
-                        fontSize="$2" 
-                        color={calcWeightGoal === key ? 'rgba(255,255,255,0.8)' : '$colorHover'}
-                      >
-                        {value.rate}
-                      </Text>
-                    </XStack>
-                  </Button>
-                ))}
-              </YStack>
-            </YStack>
-
-            {/* Macro Distribution */}
-            <YStack gap="$2">
-              <Label color="$color">Macro Distribution</Label>
-              <XStack gap="$2" flexWrap="wrap">
-                {[
-                  { key: 'balanced', label: 'Balanced', desc: '25/45/30' },
-                  { key: 'high_protein', label: 'High Protein', desc: '40/30/30' },
-                  { key: 'low_carb', label: 'Low Carb', desc: '35/25/40' },
-                  { key: 'keto', label: 'Keto', desc: '25/5/70' },
-                ].map((preset) => (
-                  <Button
-                    key={preset.key}
-                    size="$3"
-                    backgroundColor={macroPreset === preset.key ? '#6366F1' : '$backgroundHover'}
-                    onPress={() => setMacroPreset(preset.key as typeof macroPreset)}
-                  >
-                    <YStack alignItems="center">
-                      <Text 
-                        fontSize="$2"
-                        color={macroPreset === preset.key ? 'white' : '$color'}
-                      >
-                        {preset.label}
-                      </Text>
-                      <Text 
-                        fontSize="$1" 
-                        color={macroPreset === preset.key ? 'rgba(255,255,255,0.7)' : '$colorHover'}
-                      >
-                        P/C/F: {preset.desc}
-                      </Text>
-                    </YStack>
-                  </Button>
-                ))}
-              </XStack>
-            </YStack>
-
-            {/* Results */}
-            {calculatorResults && (
-              <YStack gap="$3" marginTop="$2">
-                <Separator />
-                <H4 color="$color">Your Results</H4>
-                
-                <Card backgroundColor="$backgroundHover" padding="$3">
-                  <XStack justifyContent="space-between" marginBottom="$2">
-                    <Text color="$colorHover">Maintenance (TDEE)</Text>
-                    <Text fontWeight="600" color="$color">{calculatorResults.tdee} cal</Text>
-                  </XStack>
-                  <XStack justifyContent="space-between" marginBottom="$3">
-                    <Text color="$colorHover">Target Calories</Text>
-                    <Text fontWeight="700" fontSize="$5" color="#6366F1">
-                      {calculatorResults.targetCalories} cal
-                    </Text>
-                  </XStack>
-                  <Separator marginBottom="$3" />
-                  <XStack justifyContent="space-between">
-                    <YStack alignItems="center" flex={1}>
-                      <Text fontSize="$5" fontWeight="600" color="#EF4444">
-                        {calculatorResults.macros.protein}g
-                      </Text>
-                      <Text fontSize="$2" color="$colorHover">Protein</Text>
-                    </YStack>
-                    <YStack alignItems="center" flex={1}>
-                      <Text fontSize="$5" fontWeight="600" color="#F59E0B">
-                        {calculatorResults.macros.carbs}g
-                      </Text>
-                      <Text fontSize="$2" color="$colorHover">Carbs</Text>
-                    </YStack>
-                    <YStack alignItems="center" flex={1}>
-                      <Text fontSize="$5" fontWeight="600" color="#3B82F6">
-                        {calculatorResults.macros.fat}g
-                      </Text>
-                      <Text fontSize="$2" color="$colorHover">Fat</Text>
-                    </YStack>
-                  </XStack>
-                </Card>
-
-                <Button
-                  backgroundColor="#10B981"
-                  color="white"
-                  onPress={handleApplyCalculatedGoals}
-                >
-                  Apply These Goals
-                </Button>
-              </YStack>
-            )}
-
-            {!calculatorResults && (
-              <Text color="$colorHover" textAlign="center" marginTop="$2">
-                Fill in all fields above to see your recommended goals.
-              </Text>
-            )}
-          </YStack>
-        )}
-      </Card>
-
       {/* Goals Section */}
       <Card elevate bordered padding="$4" marginBottom="$4" backgroundColor="$background">
-        <XStack alignItems="center" gap="$2" marginBottom="$4">
-          <Target size={24} color="#10B981" />
-          <H3 color="$color">Daily Goals</H3>
+        <XStack alignItems="center" justifyContent="space-between" marginBottom="$4">
+          <XStack alignItems="center" gap="$2">
+            <Target size={24} color="#10B981" />
+            <H3 color="$color">Daily Goals</H3>
+          </XStack>
+          {!isEditingGoals && (
+            <Button
+              size="$3"
+              chromeless
+              icon={Edit3}
+              onPress={() => setIsEditingGoals(true)}
+              color="#10B981"
+            />
+          )}
         </XStack>
 
-        <YStack gap="$4">
-          {/* Calories */}
-          <YStack gap="$2">
-            <Label htmlFor="calories" color="$color">
-              Daily Calories
-            </Label>
-            <Input
-              id="calories"
-              value={editedGoals.calories}
-              onChangeText={(text) =>
-                setEditedGoals((prev) => ({ ...prev, calories: text }))
-              }
-              keyboardType="numeric"
-              placeholder="2000"
-            />
+        {isEditingGoals ? (
+          <YStack gap="$4">
+            {/* Calories */}
+            <YStack gap="$2">
+              <Label htmlFor="calories" color="$color">
+                Daily Calories
+              </Label>
+              <Input
+                id="calories"
+                value={editedGoals.calories}
+                onChangeText={(text) =>
+                  setEditedGoals((prev) => ({ ...prev, calories: text }))
+                }
+                keyboardType="numeric"
+                placeholder="2000"
+              />
+            </YStack>
+
+            <Separator />
+
+            {/* Macros */}
+            <Text fontWeight="600" color="$color">Macronutrients (grams)</Text>
+            
+            <XStack gap="$2">
+              <YStack flex={1} gap="$2">
+                <Label htmlFor="protein" fontSize="$2" color="$colorHover">
+                  Protein
+                </Label>
+                <Input
+                  id="protein"
+                  value={editedGoals.protein}
+                  onChangeText={(text) =>
+                    setEditedGoals((prev) => ({ ...prev, protein: text }))
+                  }
+                  keyboardType="numeric"
+                  placeholder="150"
+                  paddingHorizontal="$2"
+                />
+              </YStack>
+
+              <YStack flex={1} gap="$2">
+                <Label htmlFor="carbs" fontSize="$2" color="$colorHover">
+                  Carbs
+                </Label>
+                <Input
+                  id="carbs"
+                  value={editedGoals.carbs}
+                  onChangeText={(text) =>
+                    setEditedGoals((prev) => ({ ...prev, carbs: text }))
+                  }
+                  keyboardType="numeric"
+                  placeholder="250"
+                  paddingHorizontal="$2"
+                />
+              </YStack>
+
+              <YStack flex={1} gap="$2">
+                <Label htmlFor="fat" fontSize="$2" color="$colorHover">
+                  Fat
+                </Label>
+                <Input
+                  id="fat"
+                  value={editedGoals.fat}
+                  onChangeText={(text) =>
+                    setEditedGoals((prev) => ({ ...prev, fat: text }))
+                  }
+                  keyboardType="numeric"
+                  placeholder="65"
+                  paddingHorizontal="$2"
+                />
+              </YStack>
+            </XStack>
+
+            {/* Fiber */}
+            <YStack gap="$2">
+              <Label htmlFor="fiber" fontSize="$2" color="$colorHover">
+                Fiber (optional)
+              </Label>
+              <Input
+                id="fiber"
+                value={editedGoals.fiber}
+                onChangeText={(text) =>
+                  setEditedGoals((prev) => ({ ...prev, fiber: text }))
+                }
+                keyboardType="numeric"
+                placeholder="25"
+                paddingHorizontal="$2"
+              />
+            </YStack>
+
+            <XStack gap="$3" marginTop="$2">
+              <Button
+                flex={1}
+                backgroundColor="#10B981"
+                color="white"
+                onPress={handleSaveGoals}
+              >
+                Save
+              </Button>
+              <Button
+                backgroundColor="$background"
+                borderWidth={1}
+                borderColor="$borderColor"
+                onPress={handleCancelGoalsEdit}
+              >
+                Cancel
+              </Button>
+              <Button
+                backgroundColor="$background"
+                borderWidth={1}
+                borderColor="#EF4444"
+                onPress={handleResetGoals}
+              >
+                Reset
+              </Button>
+            </XStack>
           </YStack>
-
-          <Separator />
-
-          {/* Macros */}
-          <Text fontWeight="600" color="$color">Macronutrients (grams)</Text>
-          
-          <XStack gap="$2">
-            <YStack flex={1} gap="$2">
-              <Label htmlFor="protein" fontSize="$2" color="$colorHover">
-                Protein
-              </Label>
-              <Input
-                id="protein"
-                value={editedGoals.protein}
-                onChangeText={(text) =>
-                  setEditedGoals((prev) => ({ ...prev, protein: text }))
-                }
-                keyboardType="numeric"
-                placeholder="150"
-                paddingHorizontal="$2"
-              />
-            </YStack>
-
-            <YStack flex={1} gap="$2">
-              <Label htmlFor="carbs" fontSize="$2" color="$colorHover">
-                Carbs
-              </Label>
-              <Input
-                id="carbs"
-                value={editedGoals.carbs}
-                onChangeText={(text) =>
-                  setEditedGoals((prev) => ({ ...prev, carbs: text }))
-                }
-                keyboardType="numeric"
-                placeholder="250"
-                paddingHorizontal="$2"
-              />
-            </YStack>
-
-            <YStack flex={1} gap="$2">
-              <Label htmlFor="fat" fontSize="$2" color="$colorHover">
-                Fat
-              </Label>
-              <Input
-                id="fat"
-                value={editedGoals.fat}
-                onChangeText={(text) =>
-                  setEditedGoals((prev) => ({ ...prev, fat: text }))
-                }
-                keyboardType="numeric"
-                placeholder="65"
-                paddingHorizontal="$2"
-              />
-            </YStack>
-          </XStack>
-
-          {/* Fiber */}
-          <YStack gap="$2">
-            <Label htmlFor="fiber" fontSize="$2" color="$colorHover">
-              Fiber (optional)
-            </Label>
-            <Input
-              id="fiber"
-              value={editedGoals.fiber}
-              onChangeText={(text) =>
-                setEditedGoals((prev) => ({ ...prev, fiber: text }))
-              }
-              keyboardType="numeric"
-              placeholder="25"
-              paddingHorizontal="$2"
-            />
+        ) : (
+          <YStack gap="$3">
+            {/* Read-only display */}
+            <XStack justifyContent="space-between" alignItems="center">
+              <Text color="$colorHover">Daily Calories</Text>
+              <Text fontWeight="600" color="$color">{goals.calories} kcal</Text>
+            </XStack>
+            
+            <Separator />
+            
+            <Text fontWeight="600" color="$color" marginBottom="$1">Macronutrients</Text>
+            <XStack justifyContent="space-between">
+              <YStack alignItems="center" flex={1}>
+                <Text fontSize="$2" color="$colorHover">Protein</Text>
+                <Text fontWeight="600" color="$color">{goals.protein}g</Text>
+              </YStack>
+              <YStack alignItems="center" flex={1}>
+                <Text fontSize="$2" color="$colorHover">Carbs</Text>
+                <Text fontWeight="600" color="$color">{goals.carbs}g</Text>
+              </YStack>
+              <YStack alignItems="center" flex={1}>
+                <Text fontSize="$2" color="$colorHover">Fat</Text>
+                <Text fontWeight="600" color="$color">{goals.fat}g</Text>
+              </YStack>
+              <YStack alignItems="center" flex={1}>
+                <Text fontSize="$2" color="$colorHover">Fiber</Text>
+                <Text fontWeight="600" color="$color">{goals.fiber || 25}g</Text>
+              </YStack>
+            </XStack>
           </YStack>
-
-          <XStack gap="$3" marginTop="$2">
-            <Button
-              flex={1}
-              backgroundColor="#10B981"
-              color="white"
-              onPress={handleSaveGoals}
-            >
-              Save Goals
-            </Button>
-            <Button
-              backgroundColor="$background"
-              borderWidth={1}
-              borderColor="$borderColor"
-              onPress={handleResetGoals}
-            >
-              Reset
-            </Button>
-          </XStack>
-        </YStack>
+        )}
       </Card>
 
       {/* Preferences Section */}
@@ -649,6 +378,131 @@ export default function ProfileScreen() {
             <Switch.Thumb animation="bouncy" />
           </Switch>
         </XStack>
+      </Card>
+
+      {/* Personal Info Section */}
+      <Card elevate bordered padding="$4" marginBottom="$4" backgroundColor="$background">
+        <XStack alignItems="center" justifyContent="space-between" marginBottom="$4">
+          <XStack alignItems="center" gap="$2">
+            <Ruler size={24} color="#10B981" />
+            <H3 color="$color">Personal Info</H3>
+          </XStack>
+          {!isEditingPersonalInfo && (
+            <Button
+              size="$3"
+              chromeless
+              icon={Edit3}
+              onPress={() => setIsEditingPersonalInfo(true)}
+              color="#10B981"
+            />
+          )}
+        </XStack>
+
+        {isEditingPersonalInfo ? (
+          <YStack gap="$4">
+            {/* Height */}
+            <YStack gap="$2">
+              <Label htmlFor="height" color="$color">
+                Height ({profile.unitSystem === 'metric' ? 'cm' : 'inches'})
+              </Label>
+              <Input
+                id="height"
+                value={editedHeight}
+                onChangeText={setEditedHeight}
+                keyboardType="decimal-pad"
+                placeholder="169.5"
+              />
+            </YStack>
+
+            {/* Age */}
+            <YStack gap="$2">
+              <Label htmlFor="age" color="$color">
+                Age (years)
+              </Label>
+              <Input
+                id="age"
+                value={editedAge}
+                onChangeText={setEditedAge}
+                keyboardType="numeric"
+                placeholder="22"
+              />
+            </YStack>
+
+            {/* Activity Level */}
+            <YStack gap="$2">
+              <Label color="$color">Activity Level</Label>
+              <YStack gap="$2">
+                {(Object.entries(ACTIVITY_MULTIPLIERS) as [ActivityLevel, typeof ACTIVITY_MULTIPLIERS[ActivityLevel]][]).map(([level, info]) => (
+                  <XStack
+                    key={level}
+                    alignItems="center"
+                    justifyContent="space-between"
+                    backgroundColor={editedActivityLevel === level ? '#10B98122' : '$backgroundHover'}
+                    padding="$3"
+                    borderRadius="$3"
+                    borderWidth={editedActivityLevel === level ? 2 : 1}
+                    borderColor={editedActivityLevel === level ? '#10B981' : '$borderColor'}
+                    pressStyle={{ opacity: 0.8 }}
+                    onPress={() => setEditedActivityLevel(level)}
+                  >
+                    <YStack flex={1}>
+                      <Text fontWeight="600" color="$color">{info.label}</Text>
+                      <Text fontSize="$2" color="$colorHover">{info.description}</Text>
+                    </YStack>
+                    {editedActivityLevel === level && (
+                      <Text color="#10B981" fontWeight="bold">Selected</Text>
+                    )}
+                  </XStack>
+                ))}
+              </YStack>
+            </YStack>
+
+            <XStack gap="$3" marginTop="$2">
+              <Button
+                flex={1}
+                backgroundColor="#10B981"
+                color="white"
+                onPress={handleSavePersonalInfo}
+              >
+                Save
+              </Button>
+              <Button
+                backgroundColor="$background"
+                borderWidth={1}
+                borderColor="$borderColor"
+                onPress={handleCancelPersonalInfoEdit}
+              >
+                Cancel
+              </Button>
+            </XStack>
+          </YStack>
+        ) : (
+          <YStack gap="$3">
+            {/* Read-only display */}
+            <XStack justifyContent="space-between" alignItems="center">
+              <Text color="$colorHover">Height</Text>
+              <Text fontWeight="600" color="$color">
+                {profile.height || 169.5} {profile.unitSystem === 'metric' ? 'cm' : 'in'}
+              </Text>
+            </XStack>
+            
+            <Separator />
+            
+            <XStack justifyContent="space-between" alignItems="center">
+              <Text color="$colorHover">Age</Text>
+              <Text fontWeight="600" color="$color">{profile.age || 22} years</Text>
+            </XStack>
+            
+            <Separator />
+            
+            <XStack justifyContent="space-between" alignItems="center">
+              <Text color="$colorHover">Activity Level</Text>
+              <Text fontWeight="600" color="$color">
+                {ACTIVITY_MULTIPLIERS[profile.activityLevel || 'sedentary'].label}
+              </Text>
+            </XStack>
+          </YStack>
+        )}
       </Card>
 
       {/* Avoid Foods Section */}

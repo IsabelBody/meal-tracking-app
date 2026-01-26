@@ -1,7 +1,7 @@
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
-import { Clock, Trash2 } from '@tamagui/lucide-icons';
+import { Clock, Pencil, Trash2 } from '@tamagui/lucide-icons';
 import { memo, useCallback, useEffect, useState } from 'react';
-import { Platform, useColorScheme } from 'react-native';
+import { Platform, Pressable, useColorScheme } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { Button, Card, Separator, Text, XStack, YStack } from 'tamagui';
 
@@ -36,13 +36,18 @@ export default function FastingScreen() {
   const startFast = useFastingStore((state) => state.startFast);
   const endFast = useFastingStore((state) => state.endFast);
   const deleteFast = useFastingStore((state) => state.deleteFast);
+  const updateFastGoal = useFastingStore((state) => state.updateFastGoal);
 
   const activeFast = useActiveFast();
   const dateSessions = useSelectedDateSessions();
 
-  // Time picker state
+  // Time picker state for start time
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [selectedTime, setSelectedTime] = useState(new Date());
+
+  // Goal time picker state
+  const [showGoalPicker, setShowGoalPicker] = useState(false);
+  const [selectedGoalTime, setSelectedGoalTime] = useState(new Date());
 
   // Live timer update
   const [currentTime, setCurrentTime] = useState(Date.now());
@@ -61,6 +66,14 @@ export default function FastingScreen() {
       setSelectedTime(new Date());
     }
   }, [showTimePicker]);
+
+  // Initialize goal time picker with current goal end time
+  useEffect(() => {
+    if (showGoalPicker && activeFast) {
+      const goalEndTime = new Date(new Date(activeFast.startTime).getTime() + activeFast.goalDuration);
+      setSelectedGoalTime(goalEndTime);
+    }
+  }, [showGoalPicker, activeFast]);
 
   // Determine display state
   const viewingToday = isToday(selectedDate);
@@ -112,6 +125,35 @@ export default function FastingScreen() {
   const handleConfirmTime = useCallback(() => {
     handleStartFast(selectedTime);
   }, [handleStartFast, selectedTime]);
+
+  const handleGoalTimeChange = useCallback(
+    (event: DateTimePickerEvent, date?: Date) => {
+      if (Platform.OS === 'android') {
+        setShowGoalPicker(false);
+        if (event.type === 'set' && date && activeFast) {
+          const startTime = new Date(activeFast.startTime).getTime();
+          const newGoalDuration = date.getTime() - startTime;
+          if (newGoalDuration > 0) {
+            updateFastGoal(activeFast.id, newGoalDuration);
+          }
+        }
+      } else if (date) {
+        setSelectedGoalTime(date);
+      }
+    },
+    [activeFast, updateFastGoal]
+  );
+
+  const handleConfirmGoalTime = useCallback(() => {
+    if (activeFast) {
+      const startTime = new Date(activeFast.startTime).getTime();
+      const newGoalDuration = selectedGoalTime.getTime() - startTime;
+      if (newGoalDuration > 0) {
+        updateFastGoal(activeFast.id, newGoalDuration);
+      }
+    }
+    setShowGoalPicker(false);
+  }, [activeFast, selectedGoalTime, updateFastGoal]);
 
   // Traffic light color scheme based on progress
   const getTrafficLightColors = (progressPercent: number) => {
@@ -196,9 +238,61 @@ export default function FastingScreen() {
 
             {/* Goal info - show goal time if fasting */}
             {isActiveFastOnDisplay && activeFast ? (
-              <Text fontSize="$3" color="$colorHover">
-                Goal: {formatGoalTime(activeFast.startTime, activeFast.goalDuration)}
-              </Text>
+              <YStack alignItems="center" gap="$2">
+                <Pressable onPress={() => setShowGoalPicker(true)}>
+                  <XStack alignItems="center" gap="$1">
+                    <Text fontSize="$3" color="$colorHover">
+                      Goal: {formatGoalTime(activeFast.startTime, activeFast.goalDuration)}
+                    </Text>
+                    <Pencil size={12} color="$colorHover" />
+                  </XStack>
+                </Pressable>
+
+                {/* Goal time picker */}
+                {showGoalPicker && (
+                  <Card
+                    bordered
+                    padding="$3"
+                    backgroundColor="$background"
+                    width="100%"
+                  >
+                    <YStack gap="$3" alignItems="center">
+                      <Text fontSize="$3" color="$colorHover">
+                        Set goal end time
+                      </Text>
+                      <DateTimePicker
+                        value={selectedGoalTime}
+                        mode="datetime"
+                        is24Hour={false}
+                        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                        onChange={handleGoalTimeChange}
+                        minimumDate={new Date(activeFast.startTime)}
+                        themeVariant={isDark ? 'dark' : 'light'}
+                      />
+                      {Platform.OS === 'ios' && (
+                        <XStack gap="$3">
+                          <Button
+                            size="$3"
+                            backgroundColor="$backgroundHover"
+                            onPress={() => setShowGoalPicker(false)}
+                            flex={1}
+                          >
+                            <Text color="$color">Cancel</Text>
+                          </Button>
+                          <Button
+                            size="$3"
+                            backgroundColor="#2D6A4F"
+                            onPress={handleConfirmGoalTime}
+                            flex={1}
+                          >
+                            <Text color="white">Update Goal</Text>
+                          </Button>
+                        </XStack>
+                      )}
+                    </YStack>
+                  </Card>
+                )}
+              </YStack>
             ) : (
               <Text fontSize="$3" color="$colorHover">
                 Goal: 23h

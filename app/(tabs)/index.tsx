@@ -1,16 +1,16 @@
-import { AlertCircle, Camera, ChevronLeft, ChevronRight, Cloud, CloudOff, List, Plus, RefreshCw, Search, Trash2, UtensilsCrossed, X } from '@tamagui/lucide-icons';
+import { AlertCircle, Camera, ChevronLeft, ChevronRight, Cloud, CloudOff, List, Minus, Pencil, Plus, RefreshCw, Search, Trash2, UtensilsCrossed, X } from '@tamagui/lucide-icons';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Modal, Pressable, TouchableWithoutFeedback, useColorScheme, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
-    Button,
-    Card,
-    Progress,
-    Separator,
-    Text,
-    XStack,
-    YStack
+  Button,
+  Card,
+  Progress,
+  Separator,
+  Text,
+  XStack,
+  YStack
 } from 'tamagui';
 
 import { SwipeableDateHeader } from '../../src/components';
@@ -21,7 +21,7 @@ import { useDateEntries, useDiaryStore } from '../../src/stores/diary.store';
 import { useGoalsStore, useNutritionProgress } from '../../src/stores/goals.store';
 import { DiaryEntry } from '../../src/types';
 import { formatTime } from '../../src/utils/date';
-import { sumNutrition } from '../../src/utils/nutrition';
+import { scaleNutrition, sumNutrition } from '../../src/utils/nutrition';
 
 export default function DashboardScreen() {
   const router = useRouter();
@@ -37,6 +37,11 @@ export default function DashboardScreen() {
   // Add food modal state
   const [modalVisible, setModalVisible] = useState(false);
   const [showCustomMealMenu, setShowCustomMealMenu] = useState(false);
+  
+  // Edit entry modal state
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [editingEntry, setEditingEntry] = useState<DiaryEntry | null>(null);
+  const [editServingAmount, setEditServingAmount] = useState(1);
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const insets = useSafeAreaInsets();
@@ -115,8 +120,9 @@ export default function DashboardScreen() {
     );
   }, [entries]);
 
-  // Get delete handler
+  // Get delete and update handlers
   const deleteEntry = useDiaryStore((state) => state.deleteEntry);
+  const updateEntry = useDiaryStore((state) => state.updateEntry);
   const getAccessToken = useAuthStore((state) => state.getAccessToken);
 
   const handleDeleteEntry = useCallback(async (entryId: string) => {
@@ -124,6 +130,54 @@ export default function DashboardScreen() {
     await deleteEntry(entryId, selectedDate, token ?? undefined);
     showSuccess('Entry deleted');
   }, [deleteEntry, selectedDate, getAccessToken, showSuccess]);
+
+  // Edit entry handlers
+  const handleEditEntry = useCallback((entry: DiaryEntry) => {
+    setEditingEntry(entry);
+    setEditServingAmount(entry.servingAmount);
+    setEditModalVisible(true);
+  }, []);
+
+  const handleCloseEditModal = useCallback(() => {
+    setEditModalVisible(false);
+    setEditingEntry(null);
+    setEditServingAmount(1);
+  }, []);
+
+  const handleSaveEdit = useCallback(() => {
+    if (!editingEntry) return;
+    
+    // Calculate the base nutrition per single serving
+    // by dividing the stored nutrition by the original serving amount
+    const baseNutrition = scaleNutrition(editingEntry.nutrition, 1 / editingEntry.servingAmount);
+    
+    // Scale to the new serving amount
+    const newNutrition = scaleNutrition(baseNutrition, editServingAmount);
+    
+    // Update the entry
+    updateEntry(editingEntry.id, {
+      servingAmount: editServingAmount,
+      nutrition: newNutrition,
+    });
+    
+    showSuccess('Entry updated');
+    handleCloseEditModal();
+  }, [editingEntry, editServingAmount, updateEntry, showSuccess, handleCloseEditModal]);
+
+  const incrementEditAmount = useCallback(() => {
+    setEditServingAmount((prev) => Math.min(prev + 0.5, 10));
+  }, []);
+
+  const decrementEditAmount = useCallback(() => {
+    setEditServingAmount((prev) => Math.max(prev - 0.5, 0.5));
+  }, []);
+
+  // Calculate preview nutrition for edit modal
+  const editPreviewNutrition = useMemo(() => {
+    if (!editingEntry) return null;
+    const baseNutrition = scaleNutrition(editingEntry.nutrition, 1 / editingEntry.servingAmount);
+    return scaleNutrition(baseNutrition, editServingAmount);
+  }, [editingEntry, editServingAmount]);
 
   return (
     <SwipeableDateHeader
@@ -241,6 +295,15 @@ export default function DashboardScreen() {
                   <Text fontSize="$3" color="$colorHover">
                     {Math.round(entry.nutrition.calories)} cal
                   </Text>
+                  <Button
+                    size="$2"
+                    circular
+                    backgroundColor="transparent"
+                    pressStyle={{ backgroundColor: '$backgroundHover' }}
+                    onPress={() => handleEditEntry(entry)}
+                  >
+                    <Pencil size={16} color="#3B82F6" />
+                  </Button>
                   <Button
                     size="$2"
                     circular
@@ -464,6 +527,158 @@ export default function DashboardScreen() {
                       </Pressable>
                     </YStack>
                   </>
+                )}
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
+
+      {/* Edit Entry Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={editModalVisible}
+        onRequestClose={handleCloseEditModal}
+      >
+        <TouchableWithoutFeedback onPress={handleCloseEditModal}>
+          <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' }}>
+            <TouchableWithoutFeedback>
+              <View
+                style={{
+                  backgroundColor: isDark ? '#1F2937' : '#FFFFFF',
+                  borderTopLeftRadius: 20,
+                  borderTopRightRadius: 20,
+                  paddingBottom: insets.bottom + 16,
+                  paddingTop: 8,
+                }}
+              >
+                {/* Handle bar */}
+                <View style={{ alignItems: 'center', paddingVertical: 8 }}>
+                  <View
+                    style={{
+                      width: 40,
+                      height: 4,
+                      backgroundColor: isDark ? '#4B5563' : '#D1D5DB',
+                      borderRadius: 2,
+                    }}
+                  />
+                </View>
+
+                {/* Header */}
+                <XStack paddingHorizontal="$4" paddingVertical="$3" justifyContent="space-between" alignItems="center">
+                  <Text fontSize={18} fontWeight="600" color={isDark ? '#F9FAFB' : '#111827'}>
+                    Edit Entry
+                  </Text>
+                  <Pressable onPress={handleCloseEditModal}>
+                    <X size={24} color={isDark ? '#9CA3AF' : '#6B7280'} />
+                  </Pressable>
+                </XStack>
+
+                <Separator backgroundColor={isDark ? '#374151' : '#E5E7EB'} />
+
+                {editingEntry && (
+                  <YStack paddingHorizontal="$4" paddingTop="$4" gap="$4">
+                    {/* Food Name */}
+                    <YStack>
+                      <Text fontSize={16} fontWeight="600" color={isDark ? '#F9FAFB' : '#111827'}>
+                        {editingEntry.foodName}
+                      </Text>
+                      {editingEntry.brandName && (
+                        <Text fontSize={14} color={isDark ? '#9CA3AF' : '#6B7280'}>
+                          {editingEntry.brandName}
+                        </Text>
+                      )}
+                    </YStack>
+
+                    {/* Serving Amount Selector */}
+                    <YStack gap="$2">
+                      <Text fontSize={14} color={isDark ? '#9CA3AF' : '#6B7280'}>
+                        Serving Size: {editingEntry.servingDescription}
+                      </Text>
+                      <XStack alignItems="center" justifyContent="center" gap="$4" paddingVertical="$2">
+                        <Button
+                          size="$4"
+                          circular
+                          icon={Minus}
+                          onPress={decrementEditAmount}
+                          disabled={editServingAmount <= 0.5}
+                          backgroundColor={isDark ? '#374151' : '$backgroundHover'}
+                        />
+                        <YStack alignItems="center" minWidth={80}>
+                          <Text fontSize={32} fontWeight="700" color={isDark ? '#F9FAFB' : '#111827'}>
+                            {editServingAmount}
+                          </Text>
+                          <Text fontSize={12} color={isDark ? '#9CA3AF' : '#6B7280'}>
+                            servings
+                          </Text>
+                        </YStack>
+                        <Button
+                          size="$4"
+                          circular
+                          icon={Plus}
+                          onPress={incrementEditAmount}
+                          disabled={editServingAmount >= 10}
+                          backgroundColor={isDark ? '#374151' : '$backgroundHover'}
+                        />
+                      </XStack>
+                    </YStack>
+
+                    {/* Nutrition Preview */}
+                    {editPreviewNutrition && (
+                      <Card
+                        backgroundColor={isDark ? '#374151' : '#F3F4F6'}
+                        padding="$3"
+                        borderRadius="$3"
+                      >
+                        <XStack justifyContent="space-around">
+                          <YStack alignItems="center">
+                            <Text fontSize={20} fontWeight="700" color={isDark ? '#F9FAFB' : '#111827'}>
+                              {Math.round(editPreviewNutrition.calories)}
+                            </Text>
+                            <Text fontSize={12} color={isDark ? '#9CA3AF' : '#6B7280'}>
+                              cal
+                            </Text>
+                          </YStack>
+                          <YStack alignItems="center">
+                            <Text fontSize={20} fontWeight="700" color={isDark ? '#F9FAFB' : '#111827'}>
+                              {Math.round(editPreviewNutrition.protein * 10) / 10}g
+                            </Text>
+                            <Text fontSize={12} color={isDark ? '#9CA3AF' : '#6B7280'}>
+                              protein
+                            </Text>
+                          </YStack>
+                          <YStack alignItems="center">
+                            <Text fontSize={20} fontWeight="700" color={isDark ? '#F9FAFB' : '#111827'}>
+                              {Math.round(editPreviewNutrition.carbs * 10) / 10}g
+                            </Text>
+                            <Text fontSize={12} color={isDark ? '#9CA3AF' : '#6B7280'}>
+                              carbs
+                            </Text>
+                          </YStack>
+                          <YStack alignItems="center">
+                            <Text fontSize={20} fontWeight="700" color={isDark ? '#F9FAFB' : '#111827'}>
+                              {Math.round(editPreviewNutrition.fat * 10) / 10}g
+                            </Text>
+                            <Text fontSize={12} color={isDark ? '#9CA3AF' : '#6B7280'}>
+                              fat
+                            </Text>
+                          </YStack>
+                        </XStack>
+                      </Card>
+                    )}
+
+                    {/* Save Button */}
+                    <Button
+                      size="$4"
+                      backgroundColor="#10B981"
+                      color="white"
+                      onPress={handleSaveEdit}
+                      marginTop="$2"
+                    >
+                      Save Changes
+                    </Button>
+                  </YStack>
                 )}
               </View>
             </TouchableWithoutFeedback>
