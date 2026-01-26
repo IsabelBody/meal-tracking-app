@@ -319,7 +319,7 @@ export default function NutrientsScreen() {
               nutrition={totals}
               showDailyValues={true}
               showEmptyCategories={false}
-              expandedCategories={['macros']}
+              expandedCategories={['macros', 'fats', 'minerals', 'vitamins', 'carotenoids', 'other']}
             />
           </Card>
         </YStack>

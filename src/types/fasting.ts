@@ -2,12 +2,12 @@ export interface FastingSession {
   id: string;
   startTime: string;      // ISO timestamp when fast started
   endTime: string | null; // ISO timestamp when fast ended (null = ongoing)
-  goalDuration: number;   // milliseconds (default: 23.5 hours)
+  goalDuration: number;   // milliseconds (default: 23 hours)
   date: string;           // YYYY-MM-DD of the fast start date
 }
 
-// 23.5 hours in milliseconds
-export const DEFAULT_FAST_GOAL = 23.5 * 60 * 60 * 1000; // 84,600,000ms
+// 23 hours in milliseconds
+export const DEFAULT_FAST_GOAL = 23 * 60 * 60 * 1000; // 82,800,000ms
 
 export function formatFastDuration(ms: number): string {
   const totalSeconds = Math.floor(ms / 1000);

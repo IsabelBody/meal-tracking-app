@@ -82,6 +82,10 @@ export default function RootLayout() {
                       options={{ presentation: 'modal' }} 
                     />
                     <Stack.Screen 
+                      name="meal/select" 
+                      options={{ presentation: 'card' }} 
+                    />
+                    <Stack.Screen 
                       name="meal/create" 
                       options={{ presentation: 'card' }} 
                     />

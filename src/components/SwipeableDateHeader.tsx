@@ -1,5 +1,5 @@
 import { ChevronLeft, ChevronRight } from '@tamagui/lucide-icons';
-import { useCallback, useRef } from 'react';
+import { useCallback } from 'react';
 import { RefreshControl, ScrollView, useColorScheme } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
@@ -35,31 +35,22 @@ export function SwipeableDateHeader({
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const insets = useSafeAreaInsets();
-  
-  // Use refs for gesture handler callbacks
-  const selectedDateRef = useRef(selectedDate);
-  const onDateChangeRef = useRef(onDateChange);
-  const viewingTodayRef = useRef(viewingToday);
-  
-  selectedDateRef.current = selectedDate;
-  onDateChangeRef.current = onDateChange;
-  viewingTodayRef.current = viewingToday;
 
   const translateX = useSharedValue(0);
 
   const goToPreviousDay = useCallback(() => {
-    onDateChangeRef.current(addDays(selectedDateRef.current, -1));
-  }, []);
+    onDateChange(addDays(selectedDate, -1));
+  }, [selectedDate, onDateChange]);
 
   const goToNextDay = useCallback(() => {
-    if (!viewingTodayRef.current) {
-      onDateChangeRef.current(addDays(selectedDateRef.current, 1));
+    if (!viewingToday) {
+      onDateChange(addDays(selectedDate, 1));
     }
-  }, []);
+  }, [selectedDate, onDateChange, viewingToday]);
 
   const goToToday = useCallback(() => {
-    onDateChangeRef.current(getTodayKey());
-  }, []);
+    onDateChange(getTodayKey());
+  }, [onDateChange]);
 
   // Horizontal pan gesture for swiping between days
   const panGesture = Gesture.Pan()
@@ -73,7 +64,7 @@ export function SwipeableDateHeader({
       
       if (event.translationX > SWIPE_THRESHOLD) {
         runOnJS(goToPreviousDay)();
-      } else if (event.translationX < -SWIPE_THRESHOLD && !viewingTodayRef.current) {
+      } else if (event.translationX < -SWIPE_THRESHOLD) {
         runOnJS(goToNextDay)();
       }
     });

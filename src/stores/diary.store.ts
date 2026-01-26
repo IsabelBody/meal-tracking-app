@@ -78,9 +78,11 @@ export const useDiaryStore = create<DiaryState>()(
           synced: false,
         };
 
-        // Auto-end any active fast when logging food
+        // Auto-end any active fast when logging food with 5+ calories
+        // (allows water, tea, coffee, etc. which are typically under 5 calories)
         const fastingState = useFastingStore.getState();
-        if (fastingState.activeFastId) {
+        const calories = entryData.nutrition?.calories ?? 0;
+        if (fastingState.activeFastId && calories >= 5) {
           fastingState.endFast(timestamp);
         }
 
