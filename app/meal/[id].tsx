@@ -1,6 +1,6 @@
 import { ChevronLeft, Pencil, Trash2 } from '@tamagui/lucide-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 import { Alert, ScrollView, useColorScheme } from 'react-native';
 import {
     Button,
@@ -16,7 +16,6 @@ import { MacroCircleGroup } from '../../src/components';
 import { useAuthStore } from '../../src/stores/auth.store';
 import { useDiaryStore } from '../../src/stores/diary.store';
 import { useMealStore } from '../../src/stores/meal.store';
-import { MEAL_TYPES, MealType } from '../../src/types';
 import { getTodayKey } from '../../src/utils/date';
 
 export default function MealDetailScreen() {
@@ -30,7 +29,6 @@ export default function MealDetailScreen() {
   const { isAuthenticated, getAccessToken } = useAuthStore();
 
   const meal = id ? getMealById(id) : undefined;
-  const [selectedMealType, setSelectedMealType] = useState<MealType>('breakfast');
 
   const handleEdit = useCallback(() => {
     if (!meal) return;
@@ -52,7 +50,7 @@ export default function MealDetailScreen() {
     // Add as a single combined entry
     await addEntry({
       date: selectedDate || getTodayKey(),
-      mealType: selectedMealType,
+      mealType: 'snack', // Default value for backwards compatibility
       foodId: `meal_${meal.id}`,
       foodName: meal.name,
       brandName: undefined,
@@ -66,10 +64,10 @@ export default function MealDetailScreen() {
 
     Alert.alert(
       'Added',
-      `"${meal.name}" added to ${MEAL_TYPES.find((m) => m.type === selectedMealType)?.label}`,
+      `"${meal.name}" added to diary`,
       [{ text: 'OK', onPress: () => router.back() }]
     );
-  }, [meal, selectedDate, selectedMealType, isAuthenticated, getAccessToken, addEntry, router]);
+  }, [meal, selectedDate, isAuthenticated, getAccessToken, addEntry, router]);
 
   const handleDelete = useCallback(() => {
     if (!meal) return;
@@ -186,26 +184,6 @@ export default function MealDetailScreen() {
               </XStack>
             ))}
           </YStack>
-        </Card>
-
-        {/* Diary Time Slot Selection */}
-        <Card elevate bordered padding="$4" marginBottom="$4" backgroundColor="$background">
-          <H3 marginBottom="$3" color="$color">Add to Diary</H3>
-          <XStack flexWrap="wrap" gap="$2">
-            {MEAL_TYPES.map((mealType) => (
-              <Button
-                key={mealType.type}
-                size="$3"
-                backgroundColor={selectedMealType === mealType.type ? '#10B981' : '$background'}
-                color={selectedMealType === mealType.type ? 'white' : '$color'}
-                borderWidth={1}
-                borderColor={selectedMealType === mealType.type ? '#10B981' : '$borderColor'}
-                onPress={() => setSelectedMealType(mealType.type)}
-              >
-                {mealType.label}
-              </Button>
-            ))}
-          </XStack>
         </Card>
 
         {/* Add Button */}

@@ -8,6 +8,7 @@ import { Button, Card, Separator, Text, XStack, YStack } from 'tamagui';
 import { SwipeableDateHeader } from '../../src/components';
 import {
     useActiveFast,
+    useFastingHydrated,
     useFastingProgress,
     useFastingStore,
     useSelectedDateSessions,
@@ -38,6 +39,7 @@ export default function FastingScreen() {
   const deleteFast = useFastingStore((state) => state.deleteFast);
   const updateFastGoal = useFastingStore((state) => state.updateFastGoal);
 
+  const hasHydrated = useFastingHydrated();
   const activeFast = useActiveFast();
   const dateSessions = useSelectedDateSessions();
 
@@ -182,6 +184,20 @@ export default function FastingScreen() {
   const progressColor = trafficColors.stroke;
   const circleFillColor = isActiveFastOnDisplay ? trafficColors.fill : 'transparent';
   const trackColor = isDark ? '#374151' : '#E5E7EB';
+
+  // Show loading state while hydrating to prevent flash of "no active fast"
+  if (!hasHydrated) {
+    return (
+      <SwipeableDateHeader
+        selectedDate={selectedDate}
+        onDateChange={setSelectedDate}
+      >
+        <YStack flex={1} alignItems="center" justifyContent="center" paddingTop="$4">
+          <Text color="$colorHover">Loading...</Text>
+        </YStack>
+      </SwipeableDateHeader>
+    );
+  }
 
   return (
     <SwipeableDateHeader

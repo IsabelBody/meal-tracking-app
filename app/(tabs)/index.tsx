@@ -8,6 +8,7 @@ import {
   Card,
   Progress,
   Separator,
+  Spinner,
   Text,
   XStack,
   YStack
@@ -16,10 +17,12 @@ import {
 import { SwipeableDateHeader } from '../../src/components';
 import { useToast } from '../../src/contexts/toast';
 import { useSync } from '../../src/hooks/useSync';
+import { getFoodById } from '../../src/services/api/food';
 import { useAuthStore } from '../../src/stores/auth.store';
 import { useDateEntries, useDiaryStore } from '../../src/stores/diary.store';
+import { useFoodSearchStore } from '../../src/stores/food-search.store';
 import { useGoalsStore, useNutritionProgress } from '../../src/stores/goals.store';
-import { DiaryEntry } from '../../src/types';
+import { DiaryEntry, NormalizedFood, NormalizedServing } from '../../src/types';
 import { formatTime } from '../../src/utils/date';
 import { scaleNutrition, sumNutrition } from '../../src/utils/nutrition';
 
@@ -42,6 +45,12 @@ export default function DashboardScreen() {
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editingEntry, setEditingEntry] = useState<DiaryEntry | null>(null);
   const [editServingAmount, setEditServingAmount] = useState(1);
+  const [editingFood, setEditingFood] = useState<NormalizedFood | null>(null);
+  const [editSelectedServing, setEditSelectedServing] = useState<NormalizedServing | null>(null);
+  const [isLoadingEditFood, setIsLoadingEditFood] = useState(false);
+  
+  // Food cache access
+  const { getCachedFood, setCachedFood } = useFoodSearchStore();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const insets = useSafeAreaInsets();
@@ -132,37 +141,93 @@ export default function DashboardScreen() {
   }, [deleteEntry, selectedDate, getAccessToken, showSuccess]);
 
   // Edit entry handlers
-  const handleEditEntry = useCallback((entry: DiaryEntry) => {
+  const handleEditEntry = useCallback(async (entry: DiaryEntry) => {
     setEditingEntry(entry);
     setEditServingAmount(entry.servingAmount);
     setEditModalVisible(true);
-  }, []);
+    setEditingFood(null);
+    setEditSelectedServing(null);
+    
+    // Skip food lookup for custom meals (meal_ prefix)
+    if (entry.foodId.startsWith('meal_')) {
+      return;
+    }
+    
+    // Try to load the food to get available servings
+    setIsLoadingEditFood(true);
+    try {
+      // Check cache first
+      const cached = getCachedFood(entry.foodId);
+      if (cached) {
+        setEditingFood(cached);
+        // Find the matching serving by ID or description
+        const matchingServing = cached.servings.find(
+          (s) => s.id === entry.servingId || s.description === entry.servingDescription
+        );
+        setEditSelectedServing(matchingServing || cached.servings[0] || null);
+      } else {
+        const food = await getFoodById(entry.foodId);
+        if (food) {
+          setEditingFood(food);
+          setCachedFood(entry.foodId, food);
+          // Find the matching serving
+          const matchingServing = food.servings.find(
+            (s) => s.id === entry.servingId || s.description === entry.servingDescription
+          );
+          setEditSelectedServing(matchingServing || food.servings[0] || null);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load food for editing:', error);
+      // Continue without food data - user can still edit amount
+    } finally {
+      setIsLoadingEditFood(false);
+    }
+  }, [getCachedFood, setCachedFood]);
 
   const handleCloseEditModal = useCallback(() => {
     setEditModalVisible(false);
     setEditingEntry(null);
     setEditServingAmount(1);
+    setEditingFood(null);
+    setEditSelectedServing(null);
+    setIsLoadingEditFood(false);
   }, []);
 
   const handleSaveEdit = useCallback(() => {
     if (!editingEntry) return;
     
-    // Calculate the base nutrition per single serving
-    // by dividing the stored nutrition by the original serving amount
-    const baseNutrition = scaleNutrition(editingEntry.nutrition, 1 / editingEntry.servingAmount);
+    // If we have food data and a selected serving, use that for more accurate calculation
+    if (editingFood && editSelectedServing) {
+      const newNutrition = scaleNutrition(editSelectedServing.nutrition, editServingAmount);
+      
+      // Check if serving type changed
+      const servingChanged = editSelectedServing.id !== editingEntry.servingId;
+      
+      updateEntry(editingEntry.id, {
+        servingId: editSelectedServing.id,
+        servingAmount: editServingAmount,
+        servingUnit: editSelectedServing.unit,
+        servingDescription: editSelectedServing.description,
+        nutrition: newNutrition,
+      });
+      
+      showSuccess(servingChanged ? 'Entry updated with new serving' : 'Entry updated');
+    } else {
+      // Fallback: just scale the existing nutrition (for custom meals or when food couldn't be loaded)
+      const baseNutrition = scaleNutrition(editingEntry.nutrition, 1 / editingEntry.servingAmount);
+      const newNutrition = scaleNutrition(baseNutrition, editServingAmount);
+      
+      updateEntry(editingEntry.id, {
+        servingAmount: editServingAmount,
+        nutrition: newNutrition,
+      });
+      
+      showSuccess('Entry updated');
+    }
     
-    // Scale to the new serving amount
-    const newNutrition = scaleNutrition(baseNutrition, editServingAmount);
-    
-    // Update the entry
-    updateEntry(editingEntry.id, {
-      servingAmount: editServingAmount,
-      nutrition: newNutrition,
-    });
-    
-    showSuccess('Entry updated');
     handleCloseEditModal();
-  }, [editingEntry, editServingAmount, updateEntry, showSuccess, handleCloseEditModal]);
+  }, [editingEntry, editServingAmount, editingFood, editSelectedServing, updateEntry, showSuccess, handleCloseEditModal]);
 
   const incrementEditAmount = useCallback(() => {
     setEditServingAmount((prev) => Math.min(prev + 0.5, 10));
@@ -175,9 +240,16 @@ export default function DashboardScreen() {
   // Calculate preview nutrition for edit modal
   const editPreviewNutrition = useMemo(() => {
     if (!editingEntry) return null;
+    
+    // If we have food data with selected serving, use that for accurate preview
+    if (editingFood && editSelectedServing) {
+      return scaleNutrition(editSelectedServing.nutrition, editServingAmount);
+    }
+    
+    // Fallback: scale from existing entry nutrition
     const baseNutrition = scaleNutrition(editingEntry.nutrition, 1 / editingEntry.servingAmount);
     return scaleNutrition(baseNutrition, editServingAmount);
-  }, [editingEntry, editServingAmount]);
+  }, [editingEntry, editServingAmount, editingFood, editSelectedServing]);
 
   return (
     <SwipeableDateHeader
@@ -591,10 +663,49 @@ export default function DashboardScreen() {
                       )}
                     </YStack>
 
+                    {/* Serving Type Selector */}
+                    <YStack gap="$2">
+                      <Text fontSize={14} fontWeight="500" color={isDark ? '#F9FAFB' : '#111827'}>
+                        Serving Size
+                      </Text>
+                      
+                      {isLoadingEditFood ? (
+                        <XStack justifyContent="center" paddingVertical="$2">
+                          <Spinner size="small" color="#10B981" />
+                        </XStack>
+                      ) : editingFood && editingFood.servings.length > 0 ? (
+                        <XStack flexWrap="wrap" gap="$2">
+                          {editingFood.servings.map((serving) => (
+                            <Button
+                              key={serving.id}
+                              size="$3"
+                              backgroundColor={editSelectedServing?.id === serving.id ? '#10B981' : (isDark ? '#374151' : '#F3F4F6')}
+                              borderWidth={1}
+                              borderColor={editSelectedServing?.id === serving.id ? '#10B981' : (isDark ? '#4B5563' : '#E5E7EB')}
+                              onPress={() => setEditSelectedServing(serving)}
+                              flexShrink={1}
+                            >
+                              <Text 
+                                fontSize={13} 
+                                color={editSelectedServing?.id === serving.id ? 'white' : (isDark ? '#F9FAFB' : '#111827')}
+                                numberOfLines={1}
+                              >
+                                {serving.description}
+                              </Text>
+                            </Button>
+                          ))}
+                        </XStack>
+                      ) : (
+                        <Text fontSize={14} color={isDark ? '#9CA3AF' : '#6B7280'}>
+                          {editingEntry.servingDescription}
+                        </Text>
+                      )}
+                    </YStack>
+
                     {/* Serving Amount Selector */}
                     <YStack gap="$2">
-                      <Text fontSize={14} color={isDark ? '#9CA3AF' : '#6B7280'}>
-                        Serving Size: {editingEntry.servingDescription}
+                      <Text fontSize={14} fontWeight="500" color={isDark ? '#F9FAFB' : '#111827'}>
+                        Number of Servings
                       </Text>
                       <XStack alignItems="center" justifyContent="center" gap="$4" paddingVertical="$2">
                         <Button

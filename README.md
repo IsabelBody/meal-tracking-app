@@ -6,7 +6,7 @@ A nutrition tracking app similar to Cronometer/MyFitnessPal, built with React Na
 
 - **Food Search**: Search USDA FoodData Central database
 - **Barcode Scanning**: Scan product barcodes using Open Food Facts (free tier)
-- **Food Diary**: Track meals by breakfast, lunch, dinner, snacks
+- **Food Diary**: Track daily food intake
 - **Macro Tracking**: Monitor calories, protein, carbs, and fat
 - **Goal Setting**: Set personalized nutrition goals
 - **Progress Visualization**: Daily progress rings and summaries

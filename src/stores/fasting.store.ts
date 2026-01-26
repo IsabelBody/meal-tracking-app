@@ -11,6 +11,9 @@ interface FastingState {
   sessions: Record<string, FastingSession[]>; // Keyed by date (YYYY-MM-DD)
   activeFastId: string | null;
   selectedDate: string;
+  
+  // Hydration state (not persisted)
+  _hasHydrated: boolean;
 
   // Actions
   setSelectedDate: (date: string | Date) => void;
@@ -20,6 +23,7 @@ interface FastingState {
   updateFastGoal: (sessionId: string, goalDuration: number) => void;
   getSessionForDate: (date: string) => FastingSession | undefined;
   getActiveFast: () => FastingSession | null;
+  setHasHydrated: (state: boolean) => void;
 }
 
 export const useFastingStore = create<FastingState>()(
@@ -29,6 +33,11 @@ export const useFastingStore = create<FastingState>()(
       sessions: {},
       activeFastId: null,
       selectedDate: getTodayKey(),
+      _hasHydrated: false,
+      
+      setHasHydrated: (state) => {
+        set({ _hasHydrated: state });
+      },
 
       // Actions
       setSelectedDate: (date) => {
@@ -162,9 +171,17 @@ export const useFastingStore = create<FastingState>()(
         activeFastId: state.activeFastId,
         selectedDate: state.selectedDate,
       }),
+      onRehydrateStorage: () => (state) => {
+        state?.setHasHydrated(true);
+      },
     }
   )
 );
+
+// Helper hook to check if hydration is complete
+export function useFastingHydrated() {
+  return useFastingStore((state) => state._hasHydrated);
+}
 
 // Helper hook to get the active fast
 export function useActiveFast() {

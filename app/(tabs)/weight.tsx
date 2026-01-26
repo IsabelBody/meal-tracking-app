@@ -93,6 +93,14 @@ export default function WeightScreen() {
     });
   };
 
+  const formatTime = (isoTimestamp: string) => {
+    const date = new Date(isoTimestamp);
+    return date.toLocaleTimeString(undefined, {
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+  };
+
   const calculateChange = (currentEntry: WeightEntry, index: number) => {
     if (index >= sortedEntries.length - 1) return null;
     const previousEntry = sortedEntries[index + 1];
@@ -236,6 +244,9 @@ export default function WeightScreen() {
                               </Text>
                             )}
                           </XStack>
+                          <Text fontSize="$2" color="$colorHover">
+                            {formatTime(entry.createdAt)}
+                          </Text>
                           {entry.notes && (
                             <Text fontSize="$2" color="$colorHover" numberOfLines={2}>
                               {entry.notes}

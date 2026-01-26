@@ -47,11 +47,10 @@ export interface MealSection {
   totals: Nutrition;
 }
 
+// Note: MealType kept for backwards compatibility with existing data
+// The app no longer uses meal type categories - all entries use 'snack' as default
 export const MEAL_TYPES: { type: MealType; label: string; icon: string }[] = [
-  { type: 'breakfast', label: 'Breakfast', icon: 'sunrise' },
-  { type: 'lunch', label: 'Lunch', icon: 'sun' },
-  { type: 'dinner', label: 'Dinner', icon: 'sunset' },
-  { type: 'snack', label: 'Snacks', icon: 'cookie' },
+  { type: 'snack', label: 'Food', icon: 'utensils' },
 ];
 
 export const DEFAULT_GOALS: NutritionGoals = {
