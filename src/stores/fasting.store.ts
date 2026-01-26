@@ -3,27 +3,26 @@ import { useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
+import { getFastingSessions } from '../services/api/user-data';
 import { DEFAULT_FAST_GOAL, FastingSession } from '../types/fasting';
 import { formatDateKey, getISOTimestamp, getTodayKey } from '../utils/date';
 
 interface FastingState {
-  // Data
-  sessions: Record<string, FastingSession[]>; // Keyed by date (YYYY-MM-DD)
+  sessions: Record<string, FastingSession[]>;
   activeFastId: string | null;
   selectedDate: string;
-  
-  // Hydration state (not persisted)
   _hasHydrated: boolean;
 
-  // Actions
   setSelectedDate: (date: string | Date) => void;
   startFast: (customStartTime?: string) => FastingSession;
   endFast: (endTime?: string) => void;
   deleteFast: (sessionId: string) => void;
   updateFastGoal: (sessionId: string, goalDuration: number) => void;
+  updateFastTimes: (sessionId: string, startTime?: string, endTime?: string) => void;
   getSessionForDate: (date: string) => FastingSession | undefined;
   getActiveFast: () => FastingSession | null;
   setHasHydrated: (state: boolean) => void;
+  syncFasting: (token: string) => Promise<void>;
 }
 
 export const useFastingStore = create<FastingState>()(
@@ -146,6 +145,66 @@ export const useFastingStore = create<FastingState>()(
         });
       },
 
+      updateFastTimes: (sessionId, startTime, endTime) => {
+        const { activeFastId } = get();
+        
+        // Prevent updating times of an active fast
+        if (activeFastId === sessionId) {
+          console.warn('Cannot update times of an active fast. End the fast first.');
+          return;
+        }
+
+        set((state) => {
+          const newSessions = { ...state.sessions };
+
+          for (const date in newSessions) {
+            const index = newSessions[date].findIndex((s) => s.id === sessionId);
+            if (index !== -1) {
+              const session = newSessions[date][index];
+              
+              // Only allow updating completed fasts
+              if (!session.endTime) {
+                console.warn('Cannot update times of an incomplete fast.');
+                return state;
+              }
+
+              newSessions[date] = [...newSessions[date]];
+              const updates: Partial<FastingSession> = {};
+              
+              if (startTime !== undefined) {
+                // Validate start time is before end time
+                const newStartTime = new Date(startTime).getTime();
+                const currentEndTime = new Date(session.endTime).getTime();
+                if (newStartTime >= currentEndTime) {
+                  console.warn('Start time must be before end time.');
+                  return state;
+                }
+                updates.startTime = startTime;
+              }
+              
+              if (endTime !== undefined) {
+                // Validate end time is after start time
+                const currentStartTime = new Date(session.startTime).getTime();
+                const newEndTime = new Date(endTime).getTime();
+                if (newEndTime <= currentStartTime) {
+                  console.warn('End time must be after start time.');
+                  return state;
+                }
+                updates.endTime = endTime;
+              }
+              
+              newSessions[date][index] = {
+                ...session,
+                ...updates,
+              };
+              break;
+            }
+          }
+
+          return { sessions: newSessions };
+        });
+      },
+
       getSessionForDate: (date) => {
         const sessions = get().sessions[date] || [];
         // Return the most recent session for this date
@@ -161,6 +220,18 @@ export const useFastingStore = create<FastingState>()(
           if (session) return session;
         }
         return null;
+      },
+
+      syncFasting: async (token) => {
+        const res = await getFastingSessions(token);
+        if (res.error || !res.data) return;
+        const byDate: Record<string, FastingSession[]> = {};
+        for (const s of res.data.sessions) {
+          const d = s.date;
+          if (!byDate[d]) byDate[d] = [];
+          byDate[d].push(s);
+        }
+        set((state) => ({ sessions: { ...state.sessions, ...byDate } }));
       },
     }),
     {

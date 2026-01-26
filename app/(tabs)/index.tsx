@@ -1,4 +1,5 @@
 import { AlertCircle, Camera, ChevronLeft, ChevronRight, Cloud, CloudOff, List, Minus, Pencil, Plus, RefreshCw, Search, Trash2, UtensilsCrossed, X } from '@tamagui/lucide-icons';
+import { Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Modal, Pressable, TouchableWithoutFeedback, useColorScheme, View } from 'react-native';
@@ -134,12 +135,6 @@ export default function DashboardScreen() {
   const updateEntry = useDiaryStore((state) => state.updateEntry);
   const getAccessToken = useAuthStore((state) => state.getAccessToken);
 
-  const handleDeleteEntry = useCallback(async (entryId: string) => {
-    const token = await getAccessToken();
-    await deleteEntry(entryId, selectedDate, token ?? undefined);
-    showSuccess('Entry deleted');
-  }, [deleteEntry, selectedDate, getAccessToken, showSuccess]);
-
   // Edit entry handlers
   const handleEditEntry = useCallback(async (entry: DiaryEntry) => {
     setEditingEntry(entry);
@@ -194,40 +189,65 @@ export default function DashboardScreen() {
     setIsLoadingEditFood(false);
   }, []);
 
-  const handleSaveEdit = useCallback(() => {
+  const handleDeleteEntry = useCallback(async (entryId: string, entryName?: string) => {
+    Alert.alert(
+      'Delete Entry?',
+      entryName 
+        ? `Are you sure you want to delete "${entryName}"? This cannot be undone.`
+        : 'Are you sure you want to delete this entry? This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            const token = await getAccessToken();
+            await deleteEntry(entryId, selectedDate, token ?? undefined);
+            showSuccess('Entry deleted');
+            handleCloseEditModal();
+          },
+        },
+      ]
+    );
+  }, [deleteEntry, selectedDate, getAccessToken, showSuccess, handleCloseEditModal]);
+
+  const handleSaveEdit = useCallback(async () => {
     if (!editingEntry) return;
-    
-    // If we have food data and a selected serving, use that for more accurate calculation
+
+    const token = (await getAccessToken()) ?? undefined;
+
     if (editingFood && editSelectedServing) {
       const newNutrition = scaleNutrition(editSelectedServing.nutrition, editServingAmount);
-      
-      // Check if serving type changed
       const servingChanged = editSelectedServing.id !== editingEntry.servingId;
-      
-      updateEntry(editingEntry.id, {
-        servingId: editSelectedServing.id,
-        servingAmount: editServingAmount,
-        servingUnit: editSelectedServing.unit,
-        servingDescription: editSelectedServing.description,
-        nutrition: newNutrition,
-      });
-      
+
+      await updateEntry(
+        editingEntry.id,
+        {
+          servingId: editSelectedServing.id,
+          servingAmount: editServingAmount,
+          servingUnit: editSelectedServing.unit,
+          servingDescription: editSelectedServing.description,
+          nutrition: newNutrition,
+        },
+        token
+      );
+
       showSuccess(servingChanged ? 'Entry updated with new serving' : 'Entry updated');
     } else {
-      // Fallback: just scale the existing nutrition (for custom meals or when food couldn't be loaded)
       const baseNutrition = scaleNutrition(editingEntry.nutrition, 1 / editingEntry.servingAmount);
       const newNutrition = scaleNutrition(baseNutrition, editServingAmount);
-      
-      updateEntry(editingEntry.id, {
-        servingAmount: editServingAmount,
-        nutrition: newNutrition,
-      });
-      
+
+      await updateEntry(
+        editingEntry.id,
+        { servingAmount: editServingAmount, nutrition: newNutrition },
+        token
+      );
+
       showSuccess('Entry updated');
     }
-    
+
     handleCloseEditModal();
-  }, [editingEntry, editServingAmount, editingFood, editSelectedServing, updateEntry, showSuccess, handleCloseEditModal]);
+  }, [editingEntry, editServingAmount, editingFood, editSelectedServing, updateEntry, showSuccess, handleCloseEditModal, getAccessToken]);
 
   const incrementEditAmount = useCallback(() => {
     setEditServingAmount((prev) => Math.min(prev + 0.5, 10));
@@ -375,15 +395,6 @@ export default function DashboardScreen() {
                     onPress={() => handleEditEntry(entry)}
                   >
                     <Pencil size={16} color="#3B82F6" />
-                  </Button>
-                  <Button
-                    size="$2"
-                    circular
-                    backgroundColor="transparent"
-                    pressStyle={{ backgroundColor: '$backgroundHover' }}
-                    onPress={() => handleDeleteEntry(entry.id)}
-                  >
-                    <Trash2 size={16} color="#EF4444" />
                   </Button>
                 </XStack>
               </XStack>
@@ -779,16 +790,26 @@ export default function DashboardScreen() {
                       </Card>
                     )}
 
-                    {/* Save Button */}
-                    <Button
-                      size="$4"
-                      backgroundColor="#10B981"
-                      color="white"
-                      onPress={handleSaveEdit}
-                      marginTop="$2"
-                    >
-                      Save Changes
-                    </Button>
+                    {/* Action Buttons */}
+                    <YStack gap="$2" marginTop="$2">
+                      <Button
+                        size="$4"
+                        backgroundColor="#10B981"
+                        color="white"
+                        onPress={handleSaveEdit}
+                      >
+                        Save Changes
+                      </Button>
+                      <Button
+                        size="$4"
+                        backgroundColor="#EF4444"
+                        color="white"
+                        icon={Trash2}
+                        onPress={() => editingEntry && handleDeleteEntry(editingEntry.id, editingEntry.foodName)}
+                      >
+                        Delete Entry
+                      </Button>
+                    </YStack>
                   </YStack>
                 )}
               </View>

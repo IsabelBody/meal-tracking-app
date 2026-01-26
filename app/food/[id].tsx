@@ -26,7 +26,7 @@ import { getFoodById } from '../../src/services/api/food';
 import { useAuthStore } from '../../src/stores/auth.store';
 import { useDiaryStore } from '../../src/stores/diary.store';
 import { useFoodSearchStore } from '../../src/stores/food-search.store';
-import { useDraftItemCount, useIsActivelyBuildingMeal, useMealStore } from '../../src/stores/meal.store';
+import { useEditingDraftItem, useDraftItemCount, useIsActivelyBuildingMeal, useMealStore } from '../../src/stores/meal.store';
 import { NormalizedFood, NormalizedServing } from '../../src/types';
 import { getTodayKey } from '../../src/utils/date';
 import { scaleNutrition } from '../../src/utils/nutrition';
@@ -48,9 +48,11 @@ export default function FoodDetailScreen() {
   } = useFoodSearchStore();
   const { addEntry, selectedDate } = useDiaryStore();
   const { isAuthenticated, getAccessToken } = useAuthStore();
-  const { addItemToDraft } = useMealStore();
+  const { addItemToDraft, replaceEditingDraftItem, cancelEditingDraftItem } = useMealStore();
   const draftItemCount = useDraftItemCount();
   const isActivelyBuildingMeal = useIsActivelyBuildingMeal();
+  const editingDraftItem = useEditingDraftItem();
+  const isEditingItem = !!editingDraftItem;
   const { showSuccess } = useToast();
 
   const [food, setFood] = useState<NormalizedFood | null>(null);
@@ -68,6 +70,20 @@ export default function FoodDetailScreen() {
     }
   }, [id]);
 
+  // Clean up editing state when leaving without saving
+  useEffect(() => {
+    // Only set up cleanup if we're currently editing an item
+    if (!isEditingItem) return;
+    
+    return () => {
+      // Check current store state at cleanup time to avoid stale closure issues
+      const state = useMealStore.getState();
+      if (state.editingDraftItemId) {
+        state.cancelEditingDraftItem();
+      }
+    };
+  }, [isEditingItem]);
+
   const loadFood = async (foodId: string) => {
     setIsLoading(true);
     setError(null);
@@ -76,7 +92,14 @@ export default function FoodDetailScreen() {
     const cached = getCachedFood(foodId);
     if (cached) {
       setFood(cached);
-      setSelectedServing(cached.servings[0] || null);
+      // If editing an item, pre-select its serving and amount
+      if (editingDraftItem && editingDraftItem.foodId === foodId) {
+        const matchingServing = cached.servings.find(s => s.id === editingDraftItem.servingId);
+        setSelectedServing(matchingServing || cached.servings[0] || null);
+        setServingAmount(editingDraftItem.servingAmount);
+      } else {
+        setSelectedServing(cached.servings[0] || null);
+      }
       setIsLoading(false);
       return;
     }
@@ -85,7 +108,14 @@ export default function FoodDetailScreen() {
       const result = await getFoodById(foodId);
       if (result) {
         setFood(result);
-        setSelectedServing(result.servings[0] || null);
+        // If editing an item, pre-select its serving and amount
+        if (editingDraftItem && editingDraftItem.foodId === foodId) {
+          const matchingServing = result.servings.find(s => s.id === editingDraftItem.servingId);
+          setSelectedServing(matchingServing || result.servings[0] || null);
+          setServingAmount(editingDraftItem.servingAmount);
+        } else {
+          setSelectedServing(result.servings[0] || null);
+        }
         setCachedFood(foodId, result);
         
         // Add to recent foods
@@ -156,7 +186,7 @@ export default function FoodDetailScreen() {
 
     const scaledNutrition = scaleNutrition(selectedServing.nutrition, servingAmount);
 
-    addItemToDraft({
+    const itemData = {
       foodId: food.id,
       foodName: food.name,
       brandName: food.brand,
@@ -166,9 +196,17 @@ export default function FoodDetailScreen() {
       servingDescription: selectedServing.description,
       nutrition: scaledNutrition,
       source: food.source,
-    });
+    };
 
-    showSuccess(`Added ${food.name} to meal`);
+    if (isEditingItem) {
+      // Update existing item
+      replaceEditingDraftItem(itemData);
+      showSuccess(`Updated ${food.name}`);
+    } else {
+      // Add new item
+      addItemToDraft(itemData);
+      showSuccess(`Added ${food.name} to meal`);
+    }
 
     // If not in an active meal building session, navigate to meal builder
     if (!isActivelyBuildingMeal) {
@@ -405,9 +443,11 @@ export default function FoodDetailScreen() {
             icon={UtensilsCrossed}
             onPress={handleAddToMeal}
           >
-            {draftItemCount > 0
-              ? `Add to Meal (${draftItemCount} item${draftItemCount !== 1 ? 's' : ''})`
-              : 'Add to Meal'}
+            {isEditingItem
+              ? 'Update Item'
+              : draftItemCount > 0
+                ? `Add to Meal (${draftItemCount} item${draftItemCount !== 1 ? 's' : ''})`
+                : 'Add to Meal'}
           </Button>
         ) : (
           /* When not actively building a meal, show both options with Add to Diary as primary */

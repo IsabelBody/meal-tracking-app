@@ -2,7 +2,11 @@ import { useEffect, useCallback, useRef } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
 import { useAuthStore } from '../stores/auth.store';
 import { useDiaryStore } from '../stores/diary.store';
+import { useFastingStore } from '../stores/fasting.store';
+import { useFoodSearchStore } from '../stores/food-search.store';
 import { useGoalsStore } from '../stores/goals.store';
+import { useMealStore } from '../stores/meal.store';
+import { useWeightStore } from '../stores/weight.store';
 
 /**
  * Hook to manage automatic data syncing with cloud
@@ -15,6 +19,10 @@ export function useSync() {
   const { isAuthenticated, getAccessToken } = useAuthStore();
   const { selectedDate, syncEntriesForDate, syncUnsyncedEntries, isSyncing: isDiarySyncing } = useDiaryStore();
   const { syncGoals, isSyncing: isGoalsSyncing } = useGoalsStore();
+  const syncWeight = useWeightStore((s) => s.syncWeight);
+  const syncFasting = useFastingStore((s) => s.syncFasting);
+  const syncMeals = useMealStore((s) => s.syncMeals);
+  const syncFavorites = useFoodSearchStore((s) => s.syncFavorites);
   
   const lastSyncedDate = useRef<string | null>(null);
   const hasInitialSynced = useRef(false);
@@ -29,22 +37,35 @@ export function useSync() {
     await syncEntriesForDate(selectedDate, token);
   }, [isAuthenticated, getAccessToken, selectedDate, syncEntriesForDate]);
 
-  // Full sync - goals and diary
+  // Full sync - goals, diary, weight, fasting, meals, favorites
   const fullSync = useCallback(async () => {
     if (!isAuthenticated) return;
-    
+
     const token = await getAccessToken();
     if (!token) return;
 
-    // Sync in parallel
     await Promise.all([
       syncGoals(token),
       syncEntriesForDate(selectedDate, token),
+      syncWeight(token),
+      syncFasting(token),
+      syncMeals(token),
+      syncFavorites(token),
     ]);
 
-    // Sync any unsynced local entries
     await syncUnsyncedEntries(token);
-  }, [isAuthenticated, getAccessToken, selectedDate, syncGoals, syncEntriesForDate, syncUnsyncedEntries]);
+  }, [
+    isAuthenticated,
+    getAccessToken,
+    selectedDate,
+    syncGoals,
+    syncEntriesForDate,
+    syncUnsyncedEntries,
+    syncWeight,
+    syncFasting,
+    syncMeals,
+    syncFavorites,
+  ]);
 
   // Initial sync on auth
   useEffect(() => {

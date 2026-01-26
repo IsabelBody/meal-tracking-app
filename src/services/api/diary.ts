@@ -1,63 +1,11 @@
 /**
  * Diary API Service
- * 
+ *
  * Handles cloud sync for diary entries and goals with the AWS backend.
  */
 
 import { DiaryEntry, NutritionGoals } from '../../types';
-
-const API_URL = process.env.EXPO_PUBLIC_API_URL || '';
-
-interface ApiResponse<T> {
-  data?: T;
-  error?: string;
-}
-
-/**
- * Make an authenticated API request
- */
-async function apiRequest<T>(
-  endpoint: string,
-  options: RequestInit & { token?: string }
-): Promise<ApiResponse<T>> {
-  const { token, ...fetchOptions } = options;
-
-  if (!API_URL) {
-    return { error: 'API URL not configured' };
-  }
-
-  try {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      ...(fetchOptions.headers as Record<string, string>),
-    };
-
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-
-    const response = await fetch(`${API_URL}${endpoint}`, {
-      ...fetchOptions,
-      headers,
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      return { error: errorData.error || `Request failed: ${response.status}` };
-    }
-
-    // Handle 204 No Content
-    if (response.status === 204) {
-      return { data: undefined as T };
-    }
-
-    const data = await response.json();
-    return { data };
-  } catch (error: any) {
-    console.error('API request error:', error);
-    return { error: error.message || 'Network error' };
-  }
-}
+import { apiRequest, ApiResponse } from './base';
 
 // ==================== DIARY ENDPOINTS ====================
 
@@ -116,6 +64,29 @@ export async function createDiaryEntry(
 }
 
 /**
+ * Update a diary entry (serving, nutrition)
+ */
+export interface DiaryEntryUpdate {
+  servingId?: string;
+  servingAmount?: number;
+  servingUnit?: string;
+  servingDescription?: string;
+  nutrition?: { calories: number; protein: number; carbs: number; fat: number; fiber?: number; sugar?: number; sodium?: number };
+}
+
+export async function updateDiaryEntry(
+  entryKey: string,
+  updates: DiaryEntryUpdate,
+  token: string
+): Promise<ApiResponse<CloudDiaryEntry>> {
+  return apiRequest(`/diary/${encodeURIComponent(entryKey)}`, {
+    method: 'PUT',
+    token,
+    body: JSON.stringify(updates),
+  });
+}
+
+/**
  * Delete a diary entry
  */
 export async function deleteDiaryEntry(
@@ -137,30 +108,61 @@ export interface CloudGoals {
   carbs: number;
   fat: number;
   fiber?: number;
+  sugar?: number;
+  sodium?: number;
   updatedAt?: string;
 }
 
+export interface CloudProfile {
+  unitSystem?: 'metric' | 'imperial';
+  name?: string;
+  email?: string;
+  gender?: 'male' | 'female';
+  weight?: number;
+  height?: number;
+  age?: number;
+  activityLevel?: string;
+  weightGoal?: string;
+}
+
+export interface CloudGoalsResponse {
+  goals: CloudGoals;
+  profile: CloudProfile;
+  avoidedIngredients: Array< { id: string; term: string; enabled: boolean; isDefault: boolean } >;
+}
+
 /**
- * Get user goals
+ * Get user goals, profile, and avoided ingredients
  */
-export async function getGoals(token: string): Promise<ApiResponse<CloudGoals>> {
+export async function getGoals(token: string): Promise<ApiResponse<CloudGoalsResponse>> {
   return apiRequest('/goals', {
     method: 'GET',
     token,
   });
 }
 
+export interface UpdateGoalsPayload {
+  goals?: Partial<NutritionGoals>;
+  profile?: Partial<CloudProfile>;
+  avoidedIngredients?: Array<{ id: string; term: string; enabled: boolean; isDefault: boolean }>;
+}
+
 /**
- * Update user goals
+ * Update user goals, profile, and/or avoided ingredients (merge with existing)
  */
 export async function updateGoals(
-  goals: Partial<NutritionGoals>,
+  payload: UpdateGoalsPayload | Partial<NutritionGoals>,
   token: string
-): Promise<ApiResponse<CloudGoals>> {
+): Promise<ApiResponse<CloudGoalsResponse>> {
+  const hasNewShape =
+    typeof (payload as UpdateGoalsPayload).goals !== 'undefined' ||
+    typeof (payload as UpdateGoalsPayload).profile !== 'undefined' ||
+    typeof (payload as UpdateGoalsPayload).avoidedIngredients !== 'undefined';
+  const body = hasNewShape ? (payload as UpdateGoalsPayload) : { goals: payload as Partial<NutritionGoals> };
   return apiRequest('/goals', {
     method: 'PUT',
     token,
-    body: JSON.stringify(goals),
+    body: JSON.stringify(body),
   });
 }
 

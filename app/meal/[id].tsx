@@ -1,7 +1,8 @@
-import { ChevronLeft, Pencil, Trash2 } from '@tamagui/lucide-icons';
+import { ChevronLeft, Pencil, Separator, Trash2, X } from '@tamagui/lucide-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback } from 'react';
-import { Alert, ScrollView, useColorScheme } from 'react-native';
+import { useCallback, useState } from 'react';
+import { Alert, Modal, Pressable, ScrollView, TouchableWithoutFeedback, useColorScheme, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
     Button,
     Card,
@@ -23,15 +24,18 @@ export default function MealDetailScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const insets = useSafeAreaInsets();
 
   const { getMealById, deleteMeal, startEditingMeal } = useMealStore();
   const { addEntry, selectedDate } = useDiaryStore();
   const { isAuthenticated, getAccessToken } = useAuthStore();
 
   const meal = id ? getMealById(id) : undefined;
+  const [showMenu, setShowMenu] = useState(false);
 
   const handleEdit = useCallback(() => {
     if (!meal) return;
+    setShowMenu(false);
 
     const success = startEditingMeal(meal.id);
     if (success) {
@@ -71,6 +75,7 @@ export default function MealDetailScreen() {
 
   const handleDelete = useCallback(() => {
     if (!meal) return;
+    setShowMenu(false);
 
     Alert.alert(
       'Delete Meal?',
@@ -122,22 +127,13 @@ export default function MealDetailScreen() {
         <H2 color="$color" numberOfLines={1} flex={1} textAlign="center">
           {meal.name}
         </H2>
-        <XStack gap="$1">
-          <Button
-            size="$3"
-            chromeless
-            icon={Pencil}
-            color="$colorHover"
-            onPress={handleEdit}
-          />
-          <Button
-            size="$3"
-            chromeless
-            icon={Trash2}
-            color="$colorHover"
-            onPress={handleDelete}
-          />
-        </XStack>
+        <Button
+          size="$3"
+          chromeless
+          icon={Pencil}
+          color="$colorHover"
+          onPress={() => setShowMenu(true)}
+        />
       </XStack>
 
       <ScrollView
@@ -196,6 +192,104 @@ export default function MealDetailScreen() {
           Add to Diary
         </Button>
       </ScrollView>
+
+      {/* Edit/Delete Menu Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={showMenu}
+        onRequestClose={() => setShowMenu(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setShowMenu(false)}>
+          <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' }}>
+            <TouchableWithoutFeedback>
+              <View
+                style={{
+                  backgroundColor: isDark ? '#1F2937' : '#FFFFFF',
+                  borderTopLeftRadius: 20,
+                  borderTopRightRadius: 20,
+                  paddingBottom: insets.bottom + 16,
+                  paddingTop: 8,
+                }}
+              >
+                {/* Handle bar */}
+                <View style={{ alignItems: 'center', paddingVertical: 8 }}>
+                  <View
+                    style={{
+                      width: 40,
+                      height: 4,
+                      backgroundColor: isDark ? '#4B5563' : '#D1D5DB',
+                      borderRadius: 2,
+                    }}
+                  />
+                </View>
+
+                {/* Header */}
+                <XStack paddingHorizontal="$4" paddingVertical="$3" justifyContent="space-between" alignItems="center">
+                  <Text fontSize={18} fontWeight="600" color={isDark ? '#F9FAFB' : '#111827'}>
+                    Meal Options
+                  </Text>
+                  <Pressable onPress={() => setShowMenu(false)}>
+                    <X size={24} color={isDark ? '#9CA3AF' : '#6B7280'} />
+                  </Pressable>
+                </XStack>
+
+                <Separator backgroundColor={isDark ? '#374151' : '#E5E7EB'} />
+
+                <YStack paddingHorizontal="$4" paddingTop="$2">
+                  <Pressable onPress={handleEdit}>
+                    <XStack paddingVertical="$4" alignItems="center" gap="$3">
+                      <YStack
+                        width={44}
+                        height={44}
+                        borderRadius={22}
+                        backgroundColor={isDark ? '#374151' : '#F3F4F6'}
+                        alignItems="center"
+                        justifyContent="center"
+                      >
+                        <Pencil size={22} color="#3B82F6" />
+                      </YStack>
+                      <YStack flex={1}>
+                        <Text color={isDark ? '#F9FAFB' : '#111827'} fontWeight="600" fontSize={16}>
+                          Edit Meal
+                        </Text>
+                        <Text color={isDark ? '#9CA3AF' : '#6B7280'} fontSize={13}>
+                          Modify meal details and items
+                        </Text>
+                      </YStack>
+                    </XStack>
+                  </Pressable>
+
+                  <Separator backgroundColor={isDark ? '#374151' : '#E5E7EB'} />
+
+                  <Pressable onPress={handleDelete}>
+                    <XStack paddingVertical="$4" alignItems="center" gap="$3">
+                      <YStack
+                        width={44}
+                        height={44}
+                        borderRadius={22}
+                        backgroundColor={isDark ? '#374151' : '#F3F4F6'}
+                        alignItems="center"
+                        justifyContent="center"
+                      >
+                        <Trash2 size={22} color="#EF4444" />
+                      </YStack>
+                      <YStack flex={1}>
+                        <Text color={isDark ? '#F9FAFB' : '#111827'} fontWeight="600" fontSize={16}>
+                          Delete Meal
+                        </Text>
+                        <Text color={isDark ? '#9CA3AF' : '#6B7280'} fontSize={13}>
+                          Permanently remove this meal
+                        </Text>
+                      </YStack>
+                    </XStack>
+                  </Pressable>
+                </YStack>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
     </YStack>
   );
 }

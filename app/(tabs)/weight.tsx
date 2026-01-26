@@ -112,11 +112,6 @@ export default function WeightScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: isDark ? '#000' : '#fff' }} edges={['top']}>
       <ScrollView flex={1} backgroundColor={isDark ? '#000' : '#F3F4F6'}>
         <YStack padding="$4" gap="$4">
-          {/* Header */}
-          <Text fontSize="$8" fontWeight="700" color="$color">
-            Weight Diary
-          </Text>
-
           {/* Log Today's Weight Card */}
           {!todayEntry && (
             <Card

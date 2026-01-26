@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
+import { getFavorites } from '../services/api/user-data';
 import { FoodSearchResult, NormalizedFood } from '../types';
 
 interface FoodCache {
@@ -55,6 +56,7 @@ interface FoodSearchState {
   removeFavorite: (foodId: string) => void;
   isFavorite: (foodId: string) => boolean;
   addRecentScan: (food: NormalizedFood) => void;
+  syncFavorites: (token: string) => Promise<void>;
 
   // Cache operations
   getCachedFood: (foodId: string) => NormalizedFood | null;
@@ -173,6 +175,17 @@ export const useFoodSearchStore = create<FoodSearchState>()(
           return {
             recentScans: [food, ...filtered].slice(0, MAX_RECENT_SCANS),
           };
+        });
+      },
+
+      syncFavorites: async (token) => {
+        const res = await getFavorites(token);
+        if (res.error || !res.data) return;
+        const cloud = res.data.favorites;
+        const cloudIds = new Set(cloud.map((f) => f.food_id));
+        set((state) => {
+          const localOnly = state.favoriteFoods.filter((f) => !cloudIds.has(f.food_id));
+          return { favoriteFoods: [...cloud, ...localOnly] };
         });
       },
 

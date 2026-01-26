@@ -36,7 +36,7 @@ interface GoalsState {
   // Actions
   updateGoals: (updates: Partial<NutritionGoals>, token?: string) => Promise<void>;
   resetGoals: () => void;
-  updateProfile: (updates: Partial<UserProfile>) => void;
+  updateProfile: (updates: Partial<UserProfile>, token?: string) => void | Promise<void>;
   setCalorieGoal: (calories: number, token?: string) => Promise<void>;
   setMacroGoals: (protein: number, carbs: number, fat: number, token?: string) => Promise<void>;
   clearError: () => void;
@@ -71,20 +71,17 @@ export const useGoalsStore = create<GoalsState>()(
           error: null,
         }));
 
-        // Sync to cloud if authenticated
         if (token) {
-          try {
-            const currentGoals = get().goals;
-            await updateGoalsApi(currentGoals, token);
+          const res = await updateGoalsApi({ goals: get().goals }, token);
+          if (res.error) {
+            console.error('Failed to sync goals to cloud:', res.error);
+            set({ error: res.error });
+          } else {
             set({ lastSyncedAt: new Date().toISOString() });
-          } catch (error: any) {
-            const message = error?.message || 'Failed to sync goals';
-            console.error('Failed to sync goals to cloud:', error);
-            set({ error: message });
           }
         }
       },
-      
+
       clearError: () => {
         set({ error: null });
       },
@@ -93,13 +90,25 @@ export const useGoalsStore = create<GoalsState>()(
         set({ goals: DEFAULT_GOALS });
       },
 
-      updateProfile: (updates) => {
+      updateProfile: async (updates, token) => {
         set((state) => ({
           profile: {
             ...state.profile,
             ...updates,
           },
         }));
+
+        if (token) {
+          const res = await updateGoalsApi(
+            { profile: { ...get().profile, ...updates } },
+            token
+          );
+          if (res.error) {
+            console.error('Failed to sync profile to cloud:', res.error);
+          } else {
+            set({ lastSyncedAt: new Date().toISOString() });
+          }
+        }
       },
 
       setCalorieGoal: async (calories, token) => {
@@ -111,13 +120,9 @@ export const useGoalsStore = create<GoalsState>()(
         }));
 
         if (token) {
-          try {
-            const currentGoals = get().goals;
-            await updateGoalsApi(currentGoals, token);
-            set({ lastSyncedAt: new Date().toISOString() });
-          } catch (error) {
-            console.error('Failed to sync goals to cloud:', error);
-          }
+          const res = await updateGoalsApi({ goals: get().goals }, token);
+          if (res.error) console.error('Failed to sync goals to cloud:', res.error);
+          else set({ lastSyncedAt: new Date().toISOString() });
         }
       },
 
@@ -132,40 +137,37 @@ export const useGoalsStore = create<GoalsState>()(
         }));
 
         if (token) {
-          try {
-            const currentGoals = get().goals;
-            await updateGoalsApi(currentGoals, token);
-            set({ lastSyncedAt: new Date().toISOString() });
-          } catch (error) {
-            console.error('Failed to sync goals to cloud:', error);
-          }
+          const res = await updateGoalsApi({ goals: get().goals }, token);
+          if (res.error) console.error('Failed to sync goals to cloud:', res.error);
+          else set({ lastSyncedAt: new Date().toISOString() });
         }
       },
 
-      // Sync goals from cloud
+      // Sync goals and profile from cloud
       syncGoals: async (token) => {
         set({ isSyncing: true, error: null });
-        
+
         try {
           const result = await getGoals(token);
-          
+
           if (result.error) {
-            set({ 
-              error: result.error, 
-              isSyncing: false 
-            });
+            set({ error: result.error, isSyncing: false });
             return;
           }
-          
-          if (result.data) {
+
+          const data = result.data;
+          if (data) {
             set({
               goals: {
-                calories: result.data.calories,
-                protein: result.data.protein,
-                carbs: result.data.carbs,
-                fat: result.data.fat,
-                fiber: result.data.fiber,
+                calories: data.goals.calories,
+                protein: data.goals.protein,
+                carbs: data.goals.carbs,
+                fat: data.goals.fat,
+                fiber: data.goals.fiber,
+                sugar: data.goals.sugar,
+                sodium: data.goals.sodium,
               },
+              profile: { ...get().profile, ...data.profile },
               lastSyncedAt: new Date().toISOString(),
               isSyncing: false,
               error: null,

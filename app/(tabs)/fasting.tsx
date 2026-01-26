@@ -1,6 +1,6 @@
-import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import DateTimePicker, { DateTimePickerAndroid, DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { Clock, Pencil, Trash2 } from '@tamagui/lucide-icons';
-import { memo, useCallback, useEffect, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { Platform, Pressable, useColorScheme } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { Button, Card, Separator, Text, XStack, YStack } from 'tamagui';
@@ -38,6 +38,7 @@ export default function FastingScreen() {
   const endFast = useFastingStore((state) => state.endFast);
   const deleteFast = useFastingStore((state) => state.deleteFast);
   const updateFastGoal = useFastingStore((state) => state.updateFastGoal);
+  const updateFastTimes = useFastingStore((state) => state.updateFastTimes);
 
   const hasHydrated = useFastingHydrated();
   const activeFast = useActiveFast();
@@ -432,6 +433,8 @@ export default function FastingScreen() {
                   activeColor={progressColor}
                   showSeparator={index < dateSessions.length - 1}
                   onDelete={() => deleteFast(session.id)}
+                  onUpdateTimes={(startTime, endTime) => updateFastTimes(session.id, startTime, endTime)}
+                  isDark={isDark}
                 />
               ))}
             </YStack>
@@ -449,6 +452,8 @@ const FastEntry = memo(function FastEntry({
   activeColor,
   showSeparator,
   onDelete,
+  onUpdateTimes,
+  isDark,
 }: {
   session: FastingSession;
   currentTime: number;
@@ -456,29 +461,199 @@ const FastEntry = memo(function FastEntry({
   activeColor: string;
   showSeparator: boolean;
   onDelete: () => void;
+  onUpdateTimes: (startTime?: string, endTime?: string) => void;
+  isDark: boolean;
 }) {
-  const startTime = new Date(session.startTime).getTime();
-  const endTime = session.endTime ? new Date(session.endTime).getTime() : currentTime;
-  const elapsed = Math.max(0, endTime - startTime);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingField, setEditingField] = useState<'start' | 'end' | null>(null);
+  const [editStartTime, setEditStartTime] = useState(new Date(session.startTime));
+  const [editEndTime, setEditEndTime] = useState(
+    session.endTime ? new Date(session.endTime) : new Date()
+  );
+  const isMountedRef = useRef(true);
+  const updateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const startTimeMs = new Date(session.startTime).getTime();
+  const endTimeMs = session.endTime ? new Date(session.endTime).getTime() : currentTime;
+  const elapsed = Math.max(0, endTimeMs - startTimeMs);
+
+  const isCompleted = session.endTime !== null;
+
+  // Prevent editing active fasts
+  const canEdit = isCompleted && !isActive;
+
+  // Cleanup on unmount
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      if (updateTimeoutRef.current) {
+        clearTimeout(updateTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Update edit times when session changes
+  useEffect(() => {
+    if (!isEditing) {
+      setEditStartTime(new Date(session.startTime));
+      setEditEndTime(session.endTime ? new Date(session.endTime) : new Date());
+    }
+  }, [session.startTime, session.endTime, isEditing]);
+
+  const handleStartEdit = useCallback((field: 'start' | 'end') => {
+    if (!canEdit) return;
+    setEditStartTime(new Date(session.startTime));
+    setEditEndTime(session.endTime ? new Date(session.endTime) : new Date());
+    setEditingField(field);
+    
+    // On Android, open the picker programmatically
+    if (Platform.OS === 'android') {
+      const currentValue = field === 'start' 
+        ? new Date(session.startTime)
+        : (session.endTime ? new Date(session.endTime) : new Date());
+      
+      // On Android, open date picker first, then time picker
+      DateTimePickerAndroid.open({
+        value: currentValue,
+        mode: 'date',
+        maximumDate: field === 'start' && session.endTime ? new Date(session.endTime) : new Date(),
+        minimumDate: field === 'end' ? new Date(session.startTime) : undefined,
+        onChange: (event, selectedDate) => {
+          if (event.type === 'set' && selectedDate) {
+            // After date is selected, open time picker
+            DateTimePickerAndroid.open({
+              value: selectedDate,
+              mode: 'time',
+              is24Hour: false,
+              onChange: (timeEvent, timeDate) => {
+                if (timeEvent.type === 'set' && timeDate) {
+                  // Combine the selected date with the selected time
+                  const finalDate = new Date(selectedDate);
+                  finalDate.setHours(timeDate.getHours());
+                  finalDate.setMinutes(timeDate.getMinutes());
+                  finalDate.setSeconds(timeDate.getSeconds());
+                  
+                  if (field === 'start') {
+                    onUpdateTimes(finalDate.toISOString(), undefined);
+                  } else if (field === 'end') {
+                    onUpdateTimes(undefined, finalDate.toISOString());
+                  }
+                }
+                setIsEditing(false);
+                setEditingField(null);
+              },
+            });
+          } else {
+            setIsEditing(false);
+            setEditingField(null);
+          }
+        },
+      });
+    } else {
+      // On iOS, show the picker in the component tree
+      setIsEditing(true);
+    }
+  }, [session.startTime, session.endTime, canEdit, onUpdateTimes]);
+
+  const handleTimeChange = useCallback(
+    (event: DateTimePickerEvent, date?: Date) => {
+      if (Platform.OS === 'android') {
+        // Handle dismissed event
+        if (event.type === 'dismissed') {
+          if (updateTimeoutRef.current) {
+            clearTimeout(updateTimeoutRef.current);
+          }
+          updateTimeoutRef.current = setTimeout(() => {
+            if (!isMountedRef.current) return;
+            setIsEditing(false);
+            setEditingField(null);
+          }, 100);
+          return;
+        }
+        
+        // Delay state updates to ensure picker is fully dismissed
+        if (updateTimeoutRef.current) {
+          clearTimeout(updateTimeoutRef.current);
+        }
+        updateTimeoutRef.current = setTimeout(() => {
+          if (!isMountedRef.current) return;
+          setIsEditing(false);
+          setEditingField(null);
+          if (event.type === 'set' && date) {
+            if (editingField === 'start') {
+              onUpdateTimes(date.toISOString(), undefined);
+            } else if (editingField === 'end') {
+              onUpdateTimes(undefined, date.toISOString());
+            }
+          }
+        }, 100);
+      } else if (date) {
+        if (editingField === 'start') {
+          setEditStartTime(date);
+        } else if (editingField === 'end') {
+          setEditEndTime(date);
+        }
+      }
+    },
+    [editingField, onUpdateTimes]
+  );
+
+  const handleConfirmEdit = useCallback(() => {
+    if (editingField === 'start') {
+      onUpdateTimes(editStartTime.toISOString(), undefined);
+    } else if (editingField === 'end') {
+      onUpdateTimes(undefined, editEndTime.toISOString());
+    }
+    setIsEditing(false);
+    setEditingField(null);
+  }, [editingField, editStartTime, editEndTime, onUpdateTimes]);
+
+  const handleCancelEdit = useCallback(() => {
+    setIsEditing(false);
+    setEditingField(null);
+  }, []);
 
   return (
     <>
       <XStack justifyContent="space-between" alignItems="center" paddingVertical="$2">
         <YStack flex={1}>
           <XStack alignItems="center" gap="$2">
-            <Text fontSize="$3" color="$color">
-              {new Date(session.startTime).toLocaleTimeString([], {
-                hour: '2-digit',
-                minute: '2-digit',
-              })}
-              {' - '}
-              {session.endTime
-                ? new Date(session.endTime).toLocaleTimeString([], {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })
-                : 'now'}
-            </Text>
+            {isCompleted ? (
+              <XStack alignItems="center" gap="$1">
+                <Pressable onPress={() => handleStartEdit('start')} disabled={!canEdit}>
+                  <XStack alignItems="center" gap="$1" opacity={canEdit ? 1 : 0.5}>
+                    <Text fontSize="$3" color="$color">
+                      {new Date(session.startTime).toLocaleTimeString([], {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </Text>
+                    {canEdit && <Pencil size={10} color="$colorHover" />}
+                  </XStack>
+                </Pressable>
+                <Text fontSize="$3" color="$color">{' - '}</Text>
+                <Pressable onPress={() => handleStartEdit('end')} disabled={!canEdit}>
+                  <XStack alignItems="center" gap="$1" opacity={canEdit ? 1 : 0.5}>
+                    <Text fontSize="$3" color="$color">
+                      {new Date(session.endTime!).toLocaleTimeString([], {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </Text>
+                    {canEdit && <Pencil size={10} color="$colorHover" />}
+                  </XStack>
+                </Pressable>
+              </XStack>
+            ) : (
+              <Text fontSize="$3" color="$color">
+                {new Date(session.startTime).toLocaleTimeString([], {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
+                {' - now'}
+              </Text>
+            )}
             {isActive && (
               <Text fontSize="$2" color={activeColor} fontWeight="600">
                 Active
@@ -501,6 +676,52 @@ const FastEntry = memo(function FastEntry({
           </Button>
         </XStack>
       </XStack>
+
+      {/* Time editor - iOS only (Android uses programmatic picker) */}
+      {isEditing && editingField && Platform.OS === 'ios' && (
+        <Card
+          bordered
+          padding="$3"
+          backgroundColor="$background"
+          marginVertical="$2"
+        >
+          <YStack gap="$3" alignItems="center">
+            <Text fontSize="$3" color="$colorHover">
+              Edit {editingField === 'start' ? 'start' : 'end'} time
+            </Text>
+            <DateTimePicker
+              key={`${session.id}-${editingField}`}
+              value={editingField === 'start' ? editStartTime : editEndTime}
+              mode="datetime"
+              is24Hour={false}
+              display="spinner"
+              onChange={handleTimeChange}
+              maximumDate={editingField === 'start' && session.endTime ? new Date(session.endTime) : new Date()}
+              minimumDate={editingField === 'end' ? new Date(session.startTime) : undefined}
+              themeVariant={isDark ? 'dark' : 'light'}
+            />
+            <XStack gap="$3" width="100%">
+              <Button
+                size="$3"
+                backgroundColor="$backgroundHover"
+                onPress={handleCancelEdit}
+                flex={1}
+              >
+                <Text color="$color">Cancel</Text>
+              </Button>
+              <Button
+                size="$3"
+                backgroundColor="#2D6A4F"
+                onPress={handleConfirmEdit}
+                flex={1}
+              >
+                <Text color="white">Save</Text>
+              </Button>
+            </XStack>
+          </YStack>
+        </Card>
+      )}
+
       {showSeparator && <Separator />}
     </>
   );

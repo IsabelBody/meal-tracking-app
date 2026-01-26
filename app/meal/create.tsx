@@ -1,7 +1,7 @@
-import { Plus, Trash2, X } from '@tamagui/lucide-icons';
+import { Pencil, Plus, Trash2, X } from '@tamagui/lucide-icons';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, ScrollView, useColorScheme } from 'react-native';
+import { Alert, Pressable, ScrollView, useColorScheme } from 'react-native';
 import {
     Button,
     Card,
@@ -15,6 +15,7 @@ import {
 
 import { MacroCompact } from '../../src/components';
 import { useDraftMeal, useIsEditingMeal, useMealStore } from '../../src/stores/meal.store';
+import { MealItem } from '../../src/types';
 
 export default function CreateMealScreen() {
   const router = useRouter();
@@ -23,7 +24,7 @@ export default function CreateMealScreen() {
 
   const draftMeal = useDraftMeal();
   const isEditing = useIsEditingMeal();
-  const { removeItemFromDraft, saveDraftMeal, cancelDraft, activateMealBuilding } = useMealStore();
+  const { removeItemFromDraft, startEditingDraftItem, saveDraftMeal, cancelDraft, activateMealBuilding } = useMealStore();
   const [mealName, setMealName] = useState(draftMeal?.name || '');
 
   // Activate meal building mode when entering this screen
@@ -38,6 +39,12 @@ export default function CreateMealScreen() {
   const handleRemoveItem = useCallback((itemId: string) => {
     removeItemFromDraft(itemId);
   }, [removeItemFromDraft]);
+
+  const handleEditItem = useCallback((item: MealItem) => {
+    // Start editing the draft item and navigate to food detail
+    startEditingDraftItem(item.id);
+    router.push(`/food/${item.foodId}`);
+  }, [startEditingDraftItem, router]);
 
   const handleSave = useCallback(() => {
     if (!draftMeal || draftMeal.items.length === 0) {
@@ -205,33 +212,46 @@ export default function CreateMealScreen() {
           ) : (
             <YStack gap="$2">
               {draftMeal.items.map((item) => (
-                <XStack
+                <Pressable
                   key={item.id}
-                  padding="$3"
-                  backgroundColor="$backgroundHover"
-                  borderRadius="$3"
-                  alignItems="center"
-                  justifyContent="space-between"
+                  onPress={() => handleEditItem(item)}
                 >
-                  <YStack flex={1} marginRight="$2">
-                    <Text fontWeight="500" color="$color" numberOfLines={1}>
-                      {item.foodName}
-                    </Text>
-                    <Text fontSize="$2" color="$colorHover">
-                      {item.servingAmount} x {item.servingDescription}
-                    </Text>
-                    <Text fontSize="$2" color="$colorHover">
-                      {Math.round(item.nutrition.calories)} cal
-                    </Text>
-                  </YStack>
-                  <Button
-                    size="$2"
-                    chromeless
-                    icon={Trash2}
-                    color="$colorHover"
-                    onPress={() => handleRemoveItem(item.id)}
-                  />
-                </XStack>
+                  <XStack
+                    padding="$3"
+                    backgroundColor="$backgroundHover"
+                    borderRadius="$3"
+                    alignItems="center"
+                    justifyContent="space-between"
+                  >
+                    <YStack flex={1} marginRight="$2">
+                      <Text fontWeight="500" color="$color" numberOfLines={1}>
+                        {item.foodName}
+                      </Text>
+                      <Text fontSize="$2" color="$colorHover">
+                        {item.servingAmount} x {item.servingDescription}
+                      </Text>
+                      <Text fontSize="$2" color="$colorHover">
+                        {Math.round(item.nutrition.calories)} cal
+                      </Text>
+                    </YStack>
+                    <XStack gap="$1" alignItems="center">
+                      <Button
+                        size="$2"
+                        chromeless
+                        icon={Pencil}
+                        color="#10B981"
+                        onPress={() => handleEditItem(item)}
+                      />
+                      <Button
+                        size="$2"
+                        chromeless
+                        icon={Trash2}
+                        color="$colorHover"
+                        onPress={() => handleRemoveItem(item.id)}
+                      />
+                    </XStack>
+                  </XStack>
+                </Pressable>
               ))}
             </YStack>
           )}

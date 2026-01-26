@@ -2,22 +2,22 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { v4 as uuidv4 } from 'uuid';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
+import { getWeightEntries } from '../services/api/user-data';
 import { WeightEntry, WeightUnit } from '../types/weight';
 import { formatDateKey, getISOTimestamp, getTodayKey } from '../utils/date';
 
 interface WeightState {
-  // Data
-  entries: Record<string, WeightEntry>; // Keyed by date (YYYY-MM-DD) - one entry per day
+  entries: Record<string, WeightEntry>;
   selectedDate: string;
   preferredUnit: WeightUnit;
 
-  // Actions
   setSelectedDate: (date: string | Date) => void;
   setPreferredUnit: (unit: WeightUnit) => void;
   logWeight: (weight: number, unit: WeightUnit, notes?: string) => WeightEntry;
   updateWeight: (date: string, weight: number, unit: WeightUnit, notes?: string) => void;
   deleteWeight: (date: string) => void;
   getEntryForDate: (date: string) => WeightEntry | undefined;
+  syncWeight: (token: string) => Promise<void>;
 }
 
 export const useWeightStore = create<WeightState>()(
@@ -116,6 +116,16 @@ export const useWeightStore = create<WeightState>()(
 
       getEntryForDate: (date) => {
         return get().entries[date];
+      },
+
+      syncWeight: async (token) => {
+        const res = await getWeightEntries(token);
+        if (res.error || !res.data) return;
+        const byDate: Record<string, WeightEntry> = {};
+        for (const e of res.data.entries) {
+          byDate[e.date] = e;
+        }
+        set((state) => ({ entries: { ...state.entries, ...byDate } }));
       },
     }),
     {

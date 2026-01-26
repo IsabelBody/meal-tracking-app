@@ -1,4 +1,4 @@
-import { AlertTriangle, Cloud, Edit3, LogIn, LogOut, Plus, Ruler, Settings, Target, User, X } from '@tamagui/lucide-icons';
+import { AlertTriangle, Cloud, Edit3, LogIn, LogOut, Plus, Ruler, Target, User, X } from '@tamagui/lucide-icons';
 import { useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Alert, ScrollView, useColorScheme } from 'react-native';
@@ -135,23 +135,17 @@ export default function ProfileScreen() {
     );
   };
 
-  const handleToggleUnits = () => {
-    updateProfile({
-      unitSystem: profile.unitSystem === 'metric' ? 'imperial' : 'metric',
-    });
-  };
-
-  const handleSavePersonalInfo = useCallback(() => {
+  const handleSavePersonalInfo = useCallback(async () => {
     const height = parseFloat(editedHeight) || 169.5;
     const age = parseInt(editedAge, 10) || 22;
-    
-    updateProfile({
-      height,
-      age,
-      activityLevel: editedActivityLevel,
-    });
+
+    const token = isAuthenticated ? await getAccessToken() : null;
+    await updateProfile(
+      { height, age, activityLevel: editedActivityLevel },
+      token ?? undefined
+    );
     setIsEditingPersonalInfo(false);
-  }, [editedHeight, editedAge, editedActivityLevel, updateProfile]);
+  }, [editedHeight, editedAge, editedActivityLevel, updateProfile, isAuthenticated, getAccessToken]);
 
   const handleCancelPersonalInfoEdit = useCallback(() => {
     // Reset to current profile
@@ -354,32 +348,6 @@ export default function ProfileScreen() {
         )}
       </Card>
 
-      {/* Preferences Section */}
-      <Card elevate bordered padding="$4" marginBottom="$4" backgroundColor="$background">
-        <XStack alignItems="center" gap="$2" marginBottom="$4">
-          <Settings size={24} color="#10B981" />
-          <H3 color="$color">Preferences</H3>
-        </XStack>
-
-        <XStack justifyContent="space-between" alignItems="center">
-          <YStack>
-            <Text fontWeight="500" color="$color">Height Unit System</Text>
-            <Text fontSize="$2" color="$colorHover">
-              Currently: {profile.unitSystem === 'metric' ? 'Metric (cm)' : 'Imperial (ft, in)'}
-            </Text>
-          </YStack>
-          <Switch
-            checked={profile.unitSystem === 'imperial'}
-            onCheckedChange={handleToggleUnits}
-            backgroundColor={profile.unitSystem === 'imperial' ? '#10B981' : '$backgroundHover'}
-            borderWidth={profile.unitSystem === 'imperial' ? 0 : 1}
-            borderColor="$borderColor"
-          >
-            <Switch.Thumb animation="bouncy" />
-          </Switch>
-        </XStack>
-      </Card>
-
       {/* Personal Info Section */}
       <Card elevate bordered padding="$4" marginBottom="$4" backgroundColor="$background">
         <XStack alignItems="center" justifyContent="space-between" marginBottom="$4">
@@ -403,7 +371,7 @@ export default function ProfileScreen() {
             {/* Height */}
             <YStack gap="$2">
               <Label htmlFor="height" color="$color">
-                Height ({profile.unitSystem === 'metric' ? 'cm' : 'inches'})
+                Height (cm)
               </Label>
               <Input
                 id="height"
@@ -482,7 +450,7 @@ export default function ProfileScreen() {
             <XStack justifyContent="space-between" alignItems="center">
               <Text color="$colorHover">Height</Text>
               <Text fontWeight="600" color="$color">
-                {profile.height || 169.5} {profile.unitSystem === 'metric' ? 'cm' : 'in'}
+                {profile.height || 169.5} cm
               </Text>
             </XStack>
             

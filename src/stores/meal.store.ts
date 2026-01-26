@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { v4 as uuidv4 } from 'uuid';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
+import { getSavedMeals } from '../services/api/user-data';
 import { DraftMeal, MealItem, Nutrition, SavedMeal } from '../types';
 import { getISOTimestamp } from '../utils/date';
 
@@ -57,6 +58,7 @@ interface MealState {
   savedMeals: SavedMeal[];
   draftMeal: DraftMeal | null;
   editingMealId: string | null; // ID of meal being edited (null = creating new)
+  editingDraftItemId: string | null; // ID of draft item being edited (for full item editing)
   isActivelyBuildingMeal: boolean; // True when user is in meal creation/editing session (not persisted)
 
   // Actions
@@ -65,17 +67,25 @@ interface MealState {
   activateMealBuilding: () => void; // Activate meal building mode without clearing draft
   addItemToDraft: (item: Omit<MealItem, 'id'>) => void;
   removeItemFromDraft: (itemId: string) => void;
+  updateItemInDraft: (itemId: string, servingAmount: number) => void; // Update item serving amount
+  startEditingDraftItem: (itemId: string) => MealItem | null; // Start editing a draft item, returns the item
+  cancelEditingDraftItem: () => void; // Cancel editing draft item
+  replaceEditingDraftItem: (item: Omit<MealItem, 'id'>) => void; // Replace the item being edited
   updateDraftName: (name: string) => void;
   saveDraftMeal: (name: string) => SavedMeal | null;
   cancelDraft: () => void;
   deleteMeal: (mealId: string) => void;
   updateMeal: (mealId: string, updates: { name?: string; items?: MealItem[] }) => void;
+  syncMeals: (token: string) => Promise<void>;
 
   // Selectors
   getMealById: (mealId: string) => SavedMeal | undefined;
+  getDraftItemById: (itemId: string) => MealItem | undefined;
+  getEditingDraftItem: () => MealItem | undefined;
   hasDraft: () => boolean;
   getDraftItemCount: () => number;
   isEditing: () => boolean;
+  isEditingDraftItem: () => boolean;
   isActiveSession: () => boolean;
 }
 
@@ -86,6 +96,7 @@ export const useMealStore = create<MealState>()(
       savedMeals: [],
       draftMeal: null,
       editingMealId: null,
+      editingDraftItemId: null,
       isActivelyBuildingMeal: false, // Not persisted - resets on app restart
 
       // Actions
@@ -147,6 +158,81 @@ export const useMealStore = create<MealState>()(
               items: state.draftMeal.items.filter((item) => item.id !== itemId),
             },
           };
+        });
+      },
+
+      updateItemInDraft: (itemId, servingAmount) => {
+        set((state) => {
+          if (!state.draftMeal) return state;
+          
+          const itemIndex = state.draftMeal.items.findIndex((item) => item.id === itemId);
+          if (itemIndex === -1) return state;
+          
+          const item = state.draftMeal.items[itemIndex];
+          const oldAmount = item.servingAmount;
+          
+          // Scale nutrition based on the ratio of new amount to old amount
+          const ratio = servingAmount / oldAmount;
+          const scaledNutrition = { ...item.nutrition };
+          
+          // Scale all nutrition values
+          for (const key of Object.keys(scaledNutrition) as (keyof typeof scaledNutrition)[]) {
+            const value = scaledNutrition[key];
+            if (typeof value === 'number') {
+              (scaledNutrition as Record<string, number>)[key] = value * ratio;
+            }
+          }
+          
+          const updatedItem: MealItem = {
+            ...item,
+            servingAmount,
+            nutrition: scaledNutrition,
+          };
+          
+          const newItems = [...state.draftMeal.items];
+          newItems[itemIndex] = updatedItem;
+          
+          return {
+            draftMeal: {
+              ...state.draftMeal,
+              items: newItems,
+            },
+          };
+        });
+      },
+
+      startEditingDraftItem: (itemId) => {
+        const item = get().draftMeal?.items.find((i) => i.id === itemId);
+        if (!item) return null;
+        set({ editingDraftItemId: itemId });
+        return item;
+      },
+
+      cancelEditingDraftItem: () => {
+        set({ editingDraftItemId: null });
+      },
+
+      replaceEditingDraftItem: (itemData) => {
+        const { editingDraftItemId, draftMeal } = get();
+        if (!editingDraftItemId || !draftMeal) return;
+
+        const itemIndex = draftMeal.items.findIndex((item) => item.id === editingDraftItemId);
+        if (itemIndex === -1) return;
+
+        const updatedItem: MealItem = {
+          ...itemData,
+          id: editingDraftItemId, // Keep the same ID
+        };
+
+        const newItems = [...draftMeal.items];
+        newItems[itemIndex] = updatedItem;
+
+        set({
+          draftMeal: {
+            ...draftMeal,
+            items: newItems,
+          },
+          editingDraftItemId: null,
         });
       },
 
@@ -253,9 +339,30 @@ export const useMealStore = create<MealState>()(
         });
       },
 
+      syncMeals: async (token) => {
+        const res = await getSavedMeals(token);
+        if (res.error || !res.data) return;
+        const cloud = res.data.meals;
+        const cloudIds = new Set(cloud.map((m) => m.id));
+        set((state) => {
+          const localOnly = state.savedMeals.filter((m) => !cloudIds.has(m.id));
+          return { savedMeals: [...cloud, ...localOnly] };
+        });
+      },
+
       // Selectors
       getMealById: (mealId) => {
         return get().savedMeals.find((meal) => meal.id === mealId);
+      },
+
+      getDraftItemById: (itemId) => {
+        return get().draftMeal?.items.find((item) => item.id === itemId);
+      },
+
+      getEditingDraftItem: () => {
+        const { editingDraftItemId, draftMeal } = get();
+        if (!editingDraftItemId || !draftMeal) return undefined;
+        return draftMeal.items.find((item) => item.id === editingDraftItemId);
       },
 
       hasDraft: () => {
@@ -268,6 +375,10 @@ export const useMealStore = create<MealState>()(
 
       isEditing: () => {
         return get().editingMealId !== null;
+      },
+
+      isEditingDraftItem: () => {
+        return get().editingDraftItemId !== null;
       },
 
       isActiveSession: () => {
@@ -313,4 +424,20 @@ export function useEditingMealId() {
 
 export function useIsActivelyBuildingMeal() {
   return useMealStore((state) => state.isActivelyBuildingMeal);
+}
+
+export function useIsEditingDraftItem() {
+  return useMealStore((state) => state.editingDraftItemId !== null);
+}
+
+export function useEditingDraftItemId() {
+  return useMealStore((state) => state.editingDraftItemId);
+}
+
+export function useEditingDraftItem() {
+  return useMealStore((state) => {
+    const { editingDraftItemId, draftMeal } = state;
+    if (!editingDraftItemId || !draftMeal) return undefined;
+    return draftMeal.items.find((item) => item.id === editingDraftItemId);
+  });
 }

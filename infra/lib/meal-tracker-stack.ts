@@ -94,9 +94,40 @@ export class MealTrackerStack extends cdk.Stack {
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
 
+    const weightTable = new dynamodb.Table(this, 'MealTrackerWeightTable', {
+      tableName: 'meal-tracker-weight',
+      partitionKey: { name: 'userId', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'date', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
+    const fastingTable = new dynamodb.Table(this, 'MealTrackerFastingTable', {
+      tableName: 'meal-tracker-fasting',
+      partitionKey: { name: 'userId', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'sessionId', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
+    const mealsTable = new dynamodb.Table(this, 'MealTrackerMealsTable', {
+      tableName: 'meal-tracker-meals',
+      partitionKey: { name: 'userId', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'mealId', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
+    const favoritesTable = new dynamodb.Table(this, 'MealTrackerFavoritesTable', {
+      tableName: 'meal-tracker-favorites',
+      partitionKey: { name: 'userId', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'foodId', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
     // ==================== LAMBDA FUNCTIONS ====================
 
-    // Diary API Lambda
     const diaryApiLambda = new lambda.Function(this, 'DiaryApiLambda', {
       functionName: 'meal-tracker-diary-api',
       runtime: lambda.Runtime.NODEJS_20_X,
@@ -107,12 +138,19 @@ export class MealTrackerStack extends cdk.Stack {
       environment: {
         DIARY_TABLE_NAME: diaryTable.tableName,
         GOALS_TABLE_NAME: goalsTable.tableName,
+        WEIGHT_TABLE_NAME: weightTable.tableName,
+        FASTING_TABLE_NAME: fastingTable.tableName,
+        MEALS_TABLE_NAME: mealsTable.tableName,
+        FAVORITES_TABLE_NAME: favoritesTable.tableName,
       },
     });
 
-    // Grant DynamoDB permissions to diary lambda
     diaryTable.grantReadWriteData(diaryApiLambda);
     goalsTable.grantReadWriteData(diaryApiLambda);
+    weightTable.grantReadWriteData(diaryApiLambda);
+    fastingTable.grantReadWriteData(diaryApiLambda);
+    mealsTable.grantReadWriteData(diaryApiLambda);
+    favoritesTable.grantReadWriteData(diaryApiLambda);
 
     // ==================== API GATEWAY ====================
 
@@ -145,8 +183,12 @@ export class MealTrackerStack extends cdk.Stack {
       authorizationType: apigateway.AuthorizationType.COGNITO,
     });
 
-    // DELETE /diary/{entryId}
+    // GET not used; PUT = update, DELETE = delete
     const diaryEntryResource = diaryResource.addResource('{entryId}');
+    diaryEntryResource.addMethod('PUT', new apigateway.LambdaIntegration(diaryApiLambda), {
+      authorizer: cognitoAuthorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
     diaryEntryResource.addMethod('DELETE', new apigateway.LambdaIntegration(diaryApiLambda), {
       authorizer: cognitoAuthorizer,
       authorizationType: apigateway.AuthorizationType.COGNITO,
@@ -161,6 +203,74 @@ export class MealTrackerStack extends cdk.Stack {
     });
 
     goalsResource.addMethod('PUT', new apigateway.LambdaIntegration(diaryApiLambda), {
+      authorizer: cognitoAuthorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+
+    const weightResource = api.root.addResource('weight');
+    weightResource.addMethod('GET', new apigateway.LambdaIntegration(diaryApiLambda), {
+      authorizer: cognitoAuthorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+    weightResource.addMethod('PUT', new apigateway.LambdaIntegration(diaryApiLambda), {
+      authorizer: cognitoAuthorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+    const weightDateResource = weightResource.addResource('{date}');
+    weightDateResource.addMethod('DELETE', new apigateway.LambdaIntegration(diaryApiLambda), {
+      authorizer: cognitoAuthorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+
+    const fastingResource = api.root.addResource('fasting');
+    fastingResource.addMethod('GET', new apigateway.LambdaIntegration(diaryApiLambda), {
+      authorizer: cognitoAuthorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+    fastingResource.addMethod('POST', new apigateway.LambdaIntegration(diaryApiLambda), {
+      authorizer: cognitoAuthorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+    const fastingIdResource = fastingResource.addResource('{sessionId}');
+    fastingIdResource.addMethod('PUT', new apigateway.LambdaIntegration(diaryApiLambda), {
+      authorizer: cognitoAuthorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+    fastingIdResource.addMethod('DELETE', new apigateway.LambdaIntegration(diaryApiLambda), {
+      authorizer: cognitoAuthorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+
+    const mealsResource = api.root.addResource('meals');
+    mealsResource.addMethod('GET', new apigateway.LambdaIntegration(diaryApiLambda), {
+      authorizer: cognitoAuthorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+    mealsResource.addMethod('POST', new apigateway.LambdaIntegration(diaryApiLambda), {
+      authorizer: cognitoAuthorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+    const mealIdResource = mealsResource.addResource('{mealId}');
+    mealIdResource.addMethod('PUT', new apigateway.LambdaIntegration(diaryApiLambda), {
+      authorizer: cognitoAuthorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+    mealIdResource.addMethod('DELETE', new apigateway.LambdaIntegration(diaryApiLambda), {
+      authorizer: cognitoAuthorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+
+    const favoritesResource = api.root.addResource('favorites');
+    favoritesResource.addMethod('GET', new apigateway.LambdaIntegration(diaryApiLambda), {
+      authorizer: cognitoAuthorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+    favoritesResource.addMethod('POST', new apigateway.LambdaIntegration(diaryApiLambda), {
+      authorizer: cognitoAuthorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+    const favoriteIdResource = favoritesResource.addResource('{foodId}');
+    favoriteIdResource.addMethod('DELETE', new apigateway.LambdaIntegration(diaryApiLambda), {
       authorizer: cognitoAuthorizer,
       authorizationType: apigateway.AuthorizationType.COGNITO,
     });

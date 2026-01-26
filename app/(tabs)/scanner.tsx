@@ -197,7 +197,7 @@ export default function ScannerScreen() {
             disabled={recentScans.length === 0}
             opacity={recentScans.length === 0 ? 0.5 : 1}
           >
-            Previously Scanned ({recentScans.length})
+            {`Previously Scanned (${recentScans.length})`}
           </Button>
 
           {/* Manual Search Option */}
@@ -254,7 +254,7 @@ export default function ScannerScreen() {
                   )}
                   {food.servings[0] && (
                     <Text fontSize="$2" color="$colorHover">
-                      {Math.round(food.servings[0].nutrition.calories)} cal
+                      {`${Math.round(food.servings[0].nutrition.calories)} cal`}
                     </Text>
                   )}
                 </YStack>

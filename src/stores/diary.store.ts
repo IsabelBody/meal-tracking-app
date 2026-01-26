@@ -9,6 +9,7 @@ import {
     deleteDiaryEntry,
     getDiaryEntries,
     localToCloudEntry,
+    updateDiaryEntry as updateDiaryEntryApi,
 } from '../services/api/diary';
 import {
     DiaryEntry,
@@ -34,7 +35,7 @@ interface DiaryState {
   // Actions
   setSelectedDate: (date: string | Date) => void;
   addEntry: (entry: Omit<DiaryEntry, 'id' | 'createdAt' | 'updatedAt'>, token?: string) => Promise<DiaryEntry>;
-  updateEntry: (id: string, updates: Partial<DiaryEntry>) => void;
+  updateEntry: (id: string, updates: Partial<DiaryEntry>, token?: string) => Promise<void>;
   deleteEntry: (id: string, date: string, token?: string) => Promise<void>;
   copyMeal: (fromDate: string, toDate: string, mealType: MealType) => void;
   clearDay: (date: string) => void;
@@ -134,26 +135,56 @@ export const useDiaryStore = create<DiaryState>()(
         return newEntry;
       },
 
-      updateEntry: (id, updates) => {
+      updateEntry: async (id, updates, token) => {
+        const entry = Object.entries(get().entries).flatMap(([d, list]) =>
+          list.map((e) => ({ ...e, date: d }))
+        ).find((e) => e.id === id);
+        const cloudKey = entry?.cloudEntryKey;
+        const date = entry?.date;
+
         set((state) => {
           const newEntries = { ...state.entries };
-          
-          for (const date in newEntries) {
-            const index = newEntries[date].findIndex((e) => e.id === id);
-            if (index !== -1) {
-              newEntries[date] = [...newEntries[date]];
-              newEntries[date][index] = {
-                ...newEntries[date][index],
+          for (const d in newEntries) {
+            const idx = newEntries[d].findIndex((e) => e.id === id);
+            if (idx !== -1) {
+              newEntries[d] = [...newEntries[d]];
+              newEntries[d][idx] = {
+                ...newEntries[d][idx],
                 ...updates,
                 updatedAt: getISOTimestamp(),
-                synced: false, // Mark as needing sync
+                synced: !!(token && cloudKey),
               };
               break;
             }
           }
-
           return { entries: newEntries };
         });
+
+        if (token && cloudKey && date) {
+          const payload: Record<string, unknown> = {};
+          if (updates.servingId != null) payload.servingId = updates.servingId;
+          if (updates.servingAmount != null) payload.servingAmount = updates.servingAmount;
+          if (updates.servingUnit != null) payload.servingUnit = updates.servingUnit;
+          if (updates.servingDescription != null) payload.servingDescription = updates.servingDescription;
+          if (updates.nutrition != null) payload.nutrition = updates.nutrition;
+          if (Object.keys(payload).length === 0) return;
+          const res = await updateDiaryEntryApi(cloudKey, payload as any, token);
+          if (res.error) {
+            console.error('Failed to sync entry update to cloud:', res.error);
+            set((state) => {
+              const newEntries = { ...state.entries };
+              for (const d in newEntries) {
+                const idx = newEntries[d].findIndex((e) => e.id === id);
+                if (idx !== -1) {
+                  newEntries[d] = [...newEntries[d]];
+                  newEntries[d][idx] = { ...newEntries[d][idx], synced: false };
+                  break;
+                }
+              }
+              return { entries: newEntries };
+            });
+          }
+        }
       },
 
       deleteEntry: async (id, date, token) => {
@@ -220,19 +251,20 @@ export const useDiaryStore = create<DiaryState>()(
 
           if (result.data?.entries) {
             const cloudEntries = result.data.entries.map(cloudToLocalEntry);
-            
+            const cloudIds = new Set(cloudEntries.map((c) => c.id));
+
             set((state) => {
               const localEntries = state.entries[date] || [];
-              // Get local entries that aren't synced (new local entries)
               const unsyncedLocal = localEntries.filter((e) => !e.synced);
-              
-              // Merge: cloud entries + unsynced local entries
-              const mergedEntries = [
-                ...cloudEntries,
-                ...unsyncedLocal.filter(
-                  (local) => !cloudEntries.some((cloud) => cloud.id === local.id)
-                ),
-              ];
+              const editedLocal = unsyncedLocal.filter((e) => e.cloudEntryKey);
+              const newLocal = unsyncedLocal.filter((e) => !e.cloudEntryKey);
+
+              const fromCloud = cloudEntries.map((c) => {
+                const local = editedLocal.find((l) => l.id === c.id);
+                return local ?? c;
+              });
+              const added = newLocal.filter((l) => !cloudIds.has(l.id));
+              const mergedEntries = [...fromCloud, ...added];
 
               return {
                 entries: {
@@ -251,7 +283,7 @@ export const useDiaryStore = create<DiaryState>()(
         }
       },
 
-      // Sync all unsynced entries to cloud
+      // Sync all unsynced entries to cloud (create new, update edited)
       syncUnsyncedEntries: async (token) => {
         const { entries } = get();
         set({ isSyncing: true });
@@ -259,35 +291,44 @@ export const useDiaryStore = create<DiaryState>()(
         try {
           for (const date in entries) {
             const unsyncedEntries = entries[date].filter((e) => !e.synced);
-            
+
             for (const entry of unsyncedEntries) {
-              const cloudData = localToCloudEntry(entry);
-              const result = await createDiaryEntry(cloudData as any, token);
-              
-              if (result.data) {
-                set((state) => {
-                  const dateEntries = state.entries[date] || [];
-                  const index = dateEntries.findIndex((e) => e.id === entry.id);
-                  if (index !== -1) {
-                    const updatedEntries = [...dateEntries];
-                    updatedEntries[index] = {
-                      ...updatedEntries[index],
-                      cloudEntryKey: result.data!.entryKey,
-                      synced: true,
-                    };
-                    return {
-                      entries: {
-                        ...state.entries,
-                        [date]: updatedEntries,
-                      },
-                    };
-                  }
-                  return state;
-                });
+              if (entry.cloudEntryKey) {
+                const payload: Record<string, unknown> = {};
+                if (entry.servingId != null) payload.servingId = entry.servingId;
+                if (entry.servingAmount != null) payload.servingAmount = entry.servingAmount;
+                if (entry.servingUnit != null) payload.servingUnit = entry.servingUnit;
+                if (entry.servingDescription != null) payload.servingDescription = entry.servingDescription;
+                if (entry.nutrition != null) payload.nutrition = entry.nutrition;
+                if (Object.keys(payload).length === 0) continue;
+                const result = await updateDiaryEntryApi(entry.cloudEntryKey, payload as any, token);
+                if (!result.error) {
+                  set((state) => {
+                    const dateEntries = state.entries[date] || [];
+                    const idx = dateEntries.findIndex((e) => e.id === entry.id);
+                    if (idx === -1) return state;
+                    const updated = [...dateEntries];
+                    updated[idx] = { ...updated[idx], synced: true };
+                    return { entries: { ...state.entries, [date]: updated } };
+                  });
+                }
+              } else {
+                const cloudData = localToCloudEntry(entry);
+                const result = await createDiaryEntry(cloudData as any, token);
+                if (result.data) {
+                  set((state) => {
+                    const dateEntries = state.entries[date] || [];
+                    const idx = dateEntries.findIndex((e) => e.id === entry.id);
+                    if (idx === -1) return state;
+                    const updated = [...dateEntries];
+                    updated[idx] = { ...updated[idx], cloudEntryKey: result.data!.entryKey, synced: true };
+                    return { entries: { ...state.entries, [date]: updated } };
+                  });
+                }
               }
             }
           }
-          
+
           set({ lastSyncedAt: getISOTimestamp(), isSyncing: false });
         } catch (error: any) {
           set({ error: error.message || 'Sync failed', isSyncing: false });
