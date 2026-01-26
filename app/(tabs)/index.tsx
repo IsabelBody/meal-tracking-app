@@ -452,31 +452,6 @@ export default function DashboardScreen() {
                     <Separator backgroundColor={isDark ? '#374151' : '#E5E7EB'} />
 
                     <YStack paddingHorizontal="$4" paddingTop="$2">
-                      <Pressable onPress={() => handleOptionPress('scan')}>
-                        <XStack paddingVertical="$4" alignItems="center" gap="$3">
-                          <YStack
-                            width={44}
-                            height={44}
-                            borderRadius={22}
-                            backgroundColor={isDark ? '#374151' : '#F3F4F6'}
-                            alignItems="center"
-                            justifyContent="center"
-                          >
-                            <Camera size={22} color={activeColor} />
-                          </YStack>
-                          <YStack flex={1}>
-                            <Text color={isDark ? '#F9FAFB' : '#111827'} fontWeight="600" fontSize={16}>
-                              Scan Barcode
-                            </Text>
-                            <Text color={isDark ? '#9CA3AF' : '#6B7280'} fontSize={13}>
-                              Scan a product barcode
-                            </Text>
-                          </YStack>
-                        </XStack>
-                      </Pressable>
-
-                      <Separator backgroundColor={isDark ? '#374151' : '#E5E7EB'} />
-
                       <Pressable onPress={() => handleOptionPress('search')}>
                         <XStack paddingVertical="$4" alignItems="center" gap="$3">
                           <YStack
@@ -495,6 +470,31 @@ export default function DashboardScreen() {
                             </Text>
                             <Text color={isDark ? '#9CA3AF' : '#6B7280'} fontSize={13}>
                               Search our food database
+                            </Text>
+                          </YStack>
+                        </XStack>
+                      </Pressable>
+
+                      <Separator backgroundColor={isDark ? '#374151' : '#E5E7EB'} />
+
+                      <Pressable onPress={() => handleOptionPress('scan')}>
+                        <XStack paddingVertical="$4" alignItems="center" gap="$3">
+                          <YStack
+                            width={44}
+                            height={44}
+                            borderRadius={22}
+                            backgroundColor={isDark ? '#374151' : '#F3F4F6'}
+                            alignItems="center"
+                            justifyContent="center"
+                          >
+                            <Camera size={22} color={activeColor} />
+                          </YStack>
+                          <YStack flex={1}>
+                            <Text color={isDark ? '#F9FAFB' : '#111827'} fontWeight="600" fontSize={16}>
+                              Scan Barcode
+                            </Text>
+                            <Text color={isDark ? '#9CA3AF' : '#6B7280'} fontSize={13}>
+                              Scan a product barcode
                             </Text>
                           </YStack>
                         </XStack>

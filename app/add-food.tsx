@@ -1,4 +1,4 @@
-import { Minus, Plus } from '@tamagui/lucide-icons';
+import { Minus, Plus, UtensilsCrossed } from '@tamagui/lucide-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, ScrollView, useColorScheme } from 'react-native';
@@ -13,8 +13,10 @@ import {
 } from 'tamagui';
 
 import { MacroItemGroup } from '../src/components';
+import { useToast } from '../src/contexts/toast';
 import { useAuthStore } from '../src/stores/auth.store';
 import { useDiaryStore } from '../src/stores/diary.store';
+import { useDraftItemCount, useIsActivelyBuildingMeal, useMealStore } from '../src/stores/meal.store';
 import { NormalizedFood, NormalizedServing } from '../src/types';
 import { getTodayKey } from '../src/utils/date';
 import { scaleNutrition } from '../src/utils/nutrition';
@@ -31,6 +33,10 @@ export default function AddFoodScreen() {
 
   const { addEntry } = useDiaryStore();
   const { isAuthenticated, getAccessToken } = useAuthStore();
+  const { addItemToDraft } = useMealStore();
+  const draftItemCount = useDraftItemCount();
+  const isActivelyBuildingMeal = useIsActivelyBuildingMeal();
+  const { showSuccess } = useToast();
 
   const [food, setFood] = useState<NormalizedFood | null>(null);
   const [selectedServing, setSelectedServing] = useState<NormalizedServing | null>(null);
@@ -80,6 +86,37 @@ export default function AddFoodScreen() {
       [{ text: 'OK', onPress: () => router.back() }]
     );
   }, [food, selectedServing, servingAmount, selectedDate, isAuthenticated, getAccessToken, addEntry, router]);
+
+  const handleAddToMeal = useCallback(() => {
+    if (!food || !selectedServing) {
+      Alert.alert('Error', 'Please select a food and serving size');
+      return;
+    }
+
+    const scaledNutrition = scaleNutrition(selectedServing.nutrition, servingAmount);
+
+    addItemToDraft({
+      foodId: food.id,
+      foodName: food.name,
+      brandName: food.brand,
+      servingId: selectedServing.id,
+      servingAmount,
+      servingUnit: selectedServing.unit,
+      servingDescription: selectedServing.description,
+      nutrition: scaledNutrition,
+      source: food.source,
+    });
+
+    showSuccess(`Added ${food.name} to meal`);
+
+    // If not in an active meal building session, navigate to meal builder
+    if (!isActivelyBuildingMeal) {
+      router.push('/meal/create');
+    } else {
+      // Otherwise go back to continue adding
+      router.back();
+    }
+  }, [food, selectedServing, servingAmount, addItemToDraft, showSuccess, isActivelyBuildingMeal, router]);
 
   const incrementAmount = () => setServingAmount((prev) => Math.min(prev + 0.5, 10));
   const decrementAmount = () => setServingAmount((prev) => Math.max(prev - 0.5, 0.5));
@@ -212,15 +249,45 @@ export default function AddFoodScreen() {
         </Card>
       )}
 
-      {/* Add Button */}
-      <Button
-        size="$5"
-        backgroundColor="#10B981"
-        color="white"
-        onPress={handleAddToDiary}
-      >
-        Add to Diary
-      </Button>
+      {/* Add Buttons */}
+      <YStack gap="$2">
+        {isActivelyBuildingMeal ? (
+          /* When actively editing/creating a meal, only show Add to Meal */
+          <Button
+            size="$5"
+            backgroundColor="#10B981"
+            color="white"
+            icon={UtensilsCrossed}
+            onPress={handleAddToMeal}
+          >
+            {draftItemCount > 0
+              ? `Add to Meal (${draftItemCount} item${draftItemCount !== 1 ? 's' : ''})`
+              : 'Add to Meal'}
+          </Button>
+        ) : (
+          /* When not actively building a meal, show both options with Add to Diary as primary */
+          <>
+            <Button
+              size="$5"
+              backgroundColor="#10B981"
+              color="white"
+              onPress={handleAddToDiary}
+            >
+              Add to Diary
+            </Button>
+            <Button
+              size="$4"
+              backgroundColor="$background"
+              borderWidth={1}
+              borderColor="$borderColor"
+              icon={UtensilsCrossed}
+              onPress={handleAddToMeal}
+            >
+              <Text color="$color">Add to Meal</Text>
+            </Button>
+          </>
+        )}
+      </YStack>
     </ScrollView>
   );
 }

@@ -32,6 +32,7 @@ interface FoodSearchState {
   recentSearches: string[];
   recentFoods: FoodSearchResult[];
   favoriteFoods: FoodSearchResult[];
+  recentScans: NormalizedFood[];
 
   // Cache
   foodCache: Record<string, FoodCache>;
@@ -53,6 +54,7 @@ interface FoodSearchState {
   addFavorite: (food: FoodSearchResult) => void;
   removeFavorite: (foodId: string) => void;
   isFavorite: (foodId: string) => boolean;
+  addRecentScan: (food: NormalizedFood) => void;
 
   // Cache operations
   getCachedFood: (foodId: string) => NormalizedFood | null;
@@ -64,6 +66,7 @@ interface FoodSearchState {
 const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
 const MAX_RECENT_SEARCHES = 10;
 const MAX_RECENT_FOODS = 20;
+const MAX_RECENT_SCANS = 20;
 
 export const useFoodSearchStore = create<FoodSearchState>()(
   persist(
@@ -83,6 +86,7 @@ export const useFoodSearchStore = create<FoodSearchState>()(
       recentSearches: [],
       recentFoods: [],
       favoriteFoods: [],
+      recentScans: [],
 
       foodCache: {},
       searchCache: {},
@@ -163,6 +167,15 @@ export const useFoodSearchStore = create<FoodSearchState>()(
         return get().favoriteFoods.some((f) => f.food_id === foodId);
       },
 
+      addRecentScan: (food) => {
+        set((state) => {
+          const filtered = state.recentScans.filter((f) => f.id !== food.id);
+          return {
+            recentScans: [food, ...filtered].slice(0, MAX_RECENT_SCANS),
+          };
+        });
+      },
+
       // Cache operations
       getCachedFood: (foodId) => {
         const cached = get().foodCache[foodId];
@@ -229,6 +242,7 @@ export const useFoodSearchStore = create<FoodSearchState>()(
         recentSearches: state.recentSearches.slice(0, MAX_RECENT_SEARCHES),
         recentFoods: state.recentFoods.slice(0, MAX_RECENT_FOODS),
         favoriteFoods: state.favoriteFoods,
+        recentScans: state.recentScans.slice(0, MAX_RECENT_SCANS),
         // Caches are kept in memory only for performance
       }),
     }

@@ -57,10 +57,12 @@ interface MealState {
   savedMeals: SavedMeal[];
   draftMeal: DraftMeal | null;
   editingMealId: string | null; // ID of meal being edited (null = creating new)
+  isActivelyBuildingMeal: boolean; // True when user is in meal creation/editing session (not persisted)
 
   // Actions
   startDraftMeal: () => void;
   startEditingMeal: (mealId: string) => boolean; // Returns false if meal not found
+  activateMealBuilding: () => void; // Activate meal building mode without clearing draft
   addItemToDraft: (item: Omit<MealItem, 'id'>) => void;
   removeItemFromDraft: (itemId: string) => void;
   updateDraftName: (name: string) => void;
@@ -74,6 +76,7 @@ interface MealState {
   hasDraft: () => boolean;
   getDraftItemCount: () => number;
   isEditing: () => boolean;
+  isActiveSession: () => boolean;
 }
 
 export const useMealStore = create<MealState>()(
@@ -83,6 +86,7 @@ export const useMealStore = create<MealState>()(
       savedMeals: [],
       draftMeal: null,
       editingMealId: null,
+      isActivelyBuildingMeal: false, // Not persisted - resets on app restart
 
       // Actions
       startDraftMeal: () => {
@@ -92,6 +96,7 @@ export const useMealStore = create<MealState>()(
             name: undefined,
           },
           editingMealId: null,
+          isActivelyBuildingMeal: true,
         });
       },
 
@@ -105,8 +110,13 @@ export const useMealStore = create<MealState>()(
             name: meal.name,
           },
           editingMealId: mealId,
+          isActivelyBuildingMeal: true,
         });
         return true;
+      },
+
+      activateMealBuilding: () => {
+        set({ isActivelyBuildingMeal: true });
       },
 
       addItemToDraft: (itemData) => {
@@ -182,6 +192,7 @@ export const useMealStore = create<MealState>()(
             savedMeals: updatedMeals,
             draftMeal: null,
             editingMealId: null,
+            isActivelyBuildingMeal: false,
           });
 
           return updatedMeal;
@@ -201,13 +212,14 @@ export const useMealStore = create<MealState>()(
           savedMeals: [newMeal, ...savedMeals],
           draftMeal: null,
           editingMealId: null,
+          isActivelyBuildingMeal: false,
         });
 
         return newMeal;
       },
 
       cancelDraft: () => {
-        set({ draftMeal: null, editingMealId: null });
+        set({ draftMeal: null, editingMealId: null, isActivelyBuildingMeal: false });
       },
 
       deleteMeal: (mealId) => {
@@ -257,6 +269,10 @@ export const useMealStore = create<MealState>()(
       isEditing: () => {
         return get().editingMealId !== null;
       },
+
+      isActiveSession: () => {
+        return get().isActivelyBuildingMeal;
+      },
     }),
     {
       name: 'meal-tracker-saved-meals',
@@ -293,4 +309,8 @@ export function useIsEditingMeal() {
 
 export function useEditingMealId() {
   return useMealStore((state) => state.editingMealId);
+}
+
+export function useIsActivelyBuildingMeal() {
+  return useMealStore((state) => state.isActivelyBuildingMeal);
 }

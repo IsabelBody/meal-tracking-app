@@ -19,7 +19,7 @@ import { useToast } from '../../src/contexts/toast';
 import { useErrorHandler } from '../../src/hooks/useErrorHandler';
 import { parseQuickNutrition, searchFoods } from '../../src/services/api/food';
 import { useFoodSearchStore } from '../../src/stores/food-search.store';
-import { useDraftItemCount, useHasDraft, useSavedMeals } from '../../src/stores/meal.store';
+import { useSavedMeals } from '../../src/stores/meal.store';
 import { FoodSearchResult } from '../../src/types';
 
 // Memoized food item component
@@ -84,8 +84,6 @@ export default function SearchScreen() {
   });
 
   const savedMeals = useSavedMeals();
-  const hasDraft = useHasDraft();
-  const draftItemCount = useDraftItemCount();
   
   const {
     query,
@@ -177,10 +175,6 @@ export default function SearchScreen() {
       pathname: '/meal/[id]',
       params: { id: mealId },
     });
-  }, [router]);
-
-  const handleContinueDraft = useCallback(() => {
-    router.push('/meal/create');
   }, [router]);
 
   const renderFoodItem = useCallback(
@@ -301,33 +295,6 @@ export default function SearchScreen() {
       {showRecentContent && (
         <ScrollView showsVerticalScrollIndicator={false}>
           <YStack gap="$4">
-            {/* Draft Meal Banner */}
-            {hasDraft && draftItemCount > 0 && (
-              <Card
-                padding="$3"
-                backgroundColor="#10B98120"
-                borderWidth={1}
-                borderColor="#10B981"
-                pressStyle={{ opacity: 0.8 }}
-                onPress={handleContinueDraft}
-              >
-                <XStack alignItems="center" justifyContent="space-between">
-                  <XStack alignItems="center" gap="$2">
-                    <UtensilsCrossed size={18} color="#10B981" />
-                    <YStack>
-                      <Text fontWeight="600" color="#10B981">
-                        Meal in Progress
-                      </Text>
-                      <Text fontSize="$2" color="#10B981">
-                        {draftItemCount} item{draftItemCount !== 1 ? 's' : ''} added
-                      </Text>
-                    </YStack>
-                  </XStack>
-                  <ChevronRight size={20} color="#10B981" />
-                </XStack>
-              </Card>
-            )}
-
             {/* Saved Meals */}
             {savedMeals.length > 0 && (
               <YStack>

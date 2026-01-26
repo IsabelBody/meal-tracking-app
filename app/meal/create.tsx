@@ -1,6 +1,6 @@
 import { Plus, Trash2, X } from '@tamagui/lucide-icons';
 import { useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Alert, ScrollView, useColorScheme } from 'react-native';
 import {
     Button,
@@ -23,8 +23,13 @@ export default function CreateMealScreen() {
 
   const draftMeal = useDraftMeal();
   const isEditing = useIsEditingMeal();
-  const { removeItemFromDraft, saveDraftMeal, cancelDraft } = useMealStore();
+  const { removeItemFromDraft, saveDraftMeal, cancelDraft, activateMealBuilding } = useMealStore();
   const [mealName, setMealName] = useState(draftMeal?.name || '');
+
+  // Activate meal building mode when entering this screen
+  useEffect(() => {
+    activateMealBuilding();
+  }, [activateMealBuilding]);
 
   const handleAddMore = useCallback(() => {
     router.push('/(tabs)/search');
